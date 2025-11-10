@@ -102,18 +102,29 @@ end
 local disabled_fx = load_disabled_fx()
 local fx_reenabled_count = 0
 
+-- Check if Shift key is held
+local shift_held = reaper.JS_Mouse_GetState(8) == 8  -- 8 = Shift key mask
+
 if #disabled_fx > 0 then
-  local result = show_reenable_dialog(disabled_fx)
-  
-  if result == 2 then -- Cancel
-    return
-  elseif result == 6 then -- Yes - re-enable FX
+  if shift_held then
+    -- Shift-click: auto-enable without dialog
     reaper.Undo_BeginBlock()
     fx_reenabled_count = reenable_fx_list(disabled_fx)
     reaper.Undo_EndBlock("Re-enable previously disabled FX", -1)
   else
-    -- User chose No, clear the list anyway
-    reaper.SetProjExtState(0, "BufferSizeScripts", "DisabledFX", "")
+    -- Normal click: show dialog
+    local result = show_reenable_dialog(disabled_fx)
+    
+    if result == 2 then -- Cancel
+      return
+    elseif result == 6 then -- Yes - re-enable FX
+      reaper.Undo_BeginBlock()
+      fx_reenabled_count = reenable_fx_list(disabled_fx)
+      reaper.Undo_EndBlock("Re-enable previously disabled FX", -1)
+    else
+      -- User chose No, clear the list anyway
+      reaper.SetProjExtState(0, "BufferSizeScripts", "DisabledFX", "")
+    end
   end
 end
 
