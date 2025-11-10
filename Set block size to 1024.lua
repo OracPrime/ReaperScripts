@@ -133,11 +133,17 @@ local _, _, section, cmdID = reaper.get_action_context()
 reaper.SetToggleCommandState(section, cmdID, 1)
 reaper.RefreshToolbar2(section, cmdID)
 
--- Find and turn OFF the 128 action
-local cmd_128 = reaper.NamedCommandLookup("_RSf87a9b715deb2a1110d90b78a2c1b71b6e55e95d") -- Will need to register this
-if cmd_128 > 0 then
-  reaper.SetToggleCommandState(section, cmd_128, 0)
-  reaper.RefreshToolbar2(section, cmd_128)
+-- Save this script's command ID for the other script to find
+reaper.SetExtState("BufferSizeScripts", "cmd_1024", tostring(cmdID), true)
+
+-- Find and turn OFF the 128 action (if it has been run before)
+local cmd_128_str = reaper.GetExtState("BufferSizeScripts", "cmd_128")
+if cmd_128_str ~= "" then
+  local cmd_128 = tonumber(cmd_128_str)
+  if cmd_128 then
+    reaper.SetToggleCommandState(section, cmd_128, 0)
+    reaper.RefreshToolbar2(section, cmd_128)
+  end
 end
 
 reaper.Main_OnCommand(1016, 0)  -- Transport: Stop

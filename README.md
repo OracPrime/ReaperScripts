@@ -44,9 +44,9 @@ See [SETUP_INSTRUCTIONS.txt](SETUP_INSTRUCTIONS.txt) for complete installation a
 
 1. Install the required extensions (js_ReaScriptAPI and SWS)
 2. Load both scripts into Reaper's Actions list
-3. Note their custom command IDs and update the scripts accordingly
-4. Add both scripts to your toolbar
-5. Click to switch buffer sizes!
+3. Add both scripts to your toolbar
+4. Click each button once to register them
+5. They will now automatically toggle each other!
 
 ## Usage Tips
 

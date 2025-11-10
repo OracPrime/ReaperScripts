@@ -25,34 +25,21 @@ INSTALLATION:
    - Load "Set block size to 128.lua"
    - Load "Set block size to 1024.lua"
 
-2. Get the Custom IDs for cross-referencing:
-   After loading each script, you need to note their custom command IDs:
-   
-   a) In the Actions list, find "Set block/buffer size to 128"
-   b) Right-click it → "Copy selected action command ID"
-   c) The ID will look like: _RS8e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b (example)
-   
-   d) Repeat for "Set block/buffer size to 1024"
-
-3. Update the scripts with the correct IDs:
-   
-   In "Set block size to 128.lua", find line:
-   local cmd_1024 = reaper.NamedCommandLookup("_RS7d3c5d8b8d7e4f9c8e7d6c5b4a3e2d1f")
-   
-   Replace the ID with the actual command ID from the 1024 script.
-   
-   In "Set block size to 1024.lua", find line:
-   local cmd_128 = reaper.NamedCommandLookup("_RS8e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b")
-   
-   Replace the ID with the actual command ID from the 128 script.
-
-4. Add to toolbar:
+2. Add to toolbar:
    - Right-click on toolbar → Customize toolbar
    - Find both scripts in the action list
    - Drag them to your toolbar
    - Click OK
 
-5. The buttons will now:
+3. First use:
+   - Click each button once
+   - This registers their command IDs so they can find each other
+   - From then on, clicking one will automatically de-highlight the other
+
+That's it! No manual ID configuration needed.
+That's it! No manual ID configuration needed.
+
+4. The buttons will now:
    - Highlight when clicked
    - Automatically de-highlight the other button
    - Set the buffer size accordingly
