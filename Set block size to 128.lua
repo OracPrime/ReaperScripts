@@ -256,8 +256,6 @@ if cmd_1024_str ~= "" then
     reaper.RefreshToolbar2(section, cmd_1024)
   end
 end
-  reaper.RefreshToolbar2(section, cmd_1024)
-end
 
 reaper.Main_OnCommand(1016, 0)  -- Transport: Stop
 reaper.Main_OnCommand(40099, 0) -- Open audio device preferences
