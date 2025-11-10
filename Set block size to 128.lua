@@ -86,16 +86,10 @@ function scan_high_pdc_fx(include_muted_tracks)
   local master_track = reaper.GetMasterTrack(0)
   if master_track then
     local fx_count = reaper.TrackFX_GetCount(master_track)
-    -- Debug: show what we're scanning
-    local debug_msg = string.format("Master track has %d FX\n", fx_count)
-    
     for j = 0, fx_count - 1 do
       local _, fx_name = reaper.TrackFX_GetFXName(master_track, j, "")
       local is_enabled = reaper.TrackFX_GetEnabled(master_track, j)
       local pdc = get_fx_pdc(master_track, j)
-      
-      -- Debug: show each FX and its PDC
-      debug_msg = debug_msg .. string.format("FX %d: %s - PDC: %d - Enabled: %s\n", j, fx_name, pdc, tostring(is_enabled))
       
       if is_enabled and pdc > PDC_THRESHOLD then
         table.insert(high_pdc_fx, {
@@ -110,11 +104,6 @@ function scan_high_pdc_fx(include_muted_tracks)
           is_monitor = false
         })
       end
-    end
-    
-    -- Temporary debug output
-    if fx_count > 0 then
-      reaper.ShowConsoleMsg(debug_msg)
     end
   end
   
