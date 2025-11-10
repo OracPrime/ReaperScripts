@@ -252,9 +252,14 @@ local preferences_title = reaper.LocalizeString("REAPER Preferences", "DLG_128",
 local window = reaper.JS_Window_Find(preferences_title, true)
 
 if window == nil then
-  reaper.ShowMessageBox("Could not find REAPER Preferences window", "Error", 0)
+  reaper.ShowMessageBox("Could not find REAPER Preferences window.\n\nThis may indicate:\n- The preferences window failed to open\n- js_ReaScriptAPI compatibility issue on your platform\n\nPlease check the ReaScript console for details.", "Error", 0)
+  reaper.ShowConsoleMsg("ERROR: JS_Window_Find failed to locate preferences window\n")
+  reaper.ShowConsoleMsg("Preferences title searched: " .. preferences_title .. "\n")
   return
 end
+
+-- Debug logging - only shown if window was found but other issues occur
+local debug_log = ""
 
 local hwnd_asio
 local hwnd_other
@@ -263,46 +268,63 @@ local arr = reaper.new_array({}, 255)
 reaper.JS_Window_ArrayAllChild(window, arr)
 local addresses = arr.table()
 
+debug_log = debug_log .. string.format("Found %d child windows\n", #addresses)
+
 for i = 1, #addresses do
   local hwnd = reaper.JS_Window_HandleFromAddress(addresses[i])
   local id = reaper.JS_Window_GetLong(hwnd, "ID")
   if id == 1008 then
     hwnd_asio = hwnd
+    debug_log = debug_log .. "Found ASIO buffer control (ID 1008)\n"
   elseif id == 1009 then
     hwnd_other = hwnd
+    debug_log = debug_log .. "Found non-ASIO buffer control (ID 1009)\n"
   elseif id == 1000 then
     local protocol = reaper.JS_Window_GetTitle(hwnd)
+    debug_log = debug_log .. string.format("Found audio protocol: %s\n", protocol)
     if protocol == "WaveOut"
         or protocol == "DirectSound"
         or protocol:find("WDM Kernel Streaming")
         or protocol:find("WASAPI")
         or protocol == "Dummy Audio" then
       use_asio = false
+    elseif protocol:find("Core Audio") or protocol:find("ALSA") or protocol:find("JACK") then
+      -- Mac/Linux audio systems
+      use_asio = false
+      debug_log = debug_log .. "Detected Mac/Linux audio system\n"
     end
   elseif id == 1043 or id == 1045 then -- "Request block size" checkbox (1043 is osx, 1045 is win)
     reaper.JS_WindowMessage_Send(hwnd, "BM_SETCHECK", 0x1, 0, 0, 0)
+    debug_log = debug_log .. string.format("Checked 'Request block size' checkbox (ID %d)\n", id)
   end
 end
 
 if use_asio then
   if hwnd_asio then
     reaper.JS_Window_SetTitle(hwnd_asio, selected_size)
+    debug_log = debug_log .. string.format("Set ASIO buffer to %s\n", selected_size)
   else
-    reaper.ShowMessageBox("Could not find ASIO buffer size control", "Error", 0)
+    reaper.ShowMessageBox("Could not find ASIO buffer size control.\n\nThis may indicate:\n- Unexpected preferences window layout\n- Platform-specific UI differences\n\nDebug info has been written to the ReaScript console.", "Error", 0)
+    reaper.ShowConsoleMsg("ERROR: ASIO buffer control not found\n")
+    reaper.ShowConsoleMsg(debug_log)
     reaper.JS_Window_Destroy(window)
     return
   end
 else
   if hwnd_other then
     reaper.JS_Window_SetTitle(hwnd_other, selected_size)
+    debug_log = debug_log .. string.format("Set non-ASIO buffer to %s\n", selected_size)
   else
-    reaper.ShowMessageBox("Could not find buffer size control", "Error", 0)
+    reaper.ShowMessageBox("Could not find buffer size control.\n\nThis may indicate:\n- Unexpected preferences window layout\n- Platform-specific UI differences\n\nDebug info has been written to the ReaScript console.", "Error", 0)
+    reaper.ShowConsoleMsg("ERROR: Buffer control (ID 1009) not found\n")
+    reaper.ShowConsoleMsg(debug_log)
     reaper.JS_Window_Destroy(window)
     return
   end
 end
 
 reaper.JS_WindowMessage_Send(window, "WM_COMMAND", 1144, 0, 0, 0) -- Apply
+debug_log = debug_log .. "Applied settings\n"
 reaper.JS_Window_Destroy(window)
 
 -- Show status message in the status bar
@@ -311,3 +333,11 @@ if fx_disabled_count > 0 then
   status_msg = status_msg .. " (" .. fx_disabled_count .. " FX bypassed)"
 end
 reaper.Undo_OnStateChange(status_msg)
+
+-- Only output debug log if something went wrong (for Mac/Linux troubleshooting)
+-- Check if we detected a non-Windows platform
+if debug_log:find("Core Audio") or debug_log:find("ALSA") or debug_log:find("JACK") then
+  reaper.ShowConsoleMsg("=== Buffer Size Script Debug Log ===\n")
+  reaper.ShowConsoleMsg(debug_log)
+  reaper.ShowConsoleMsg("=====================================\n")
+end

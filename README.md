@@ -48,6 +48,10 @@ See [SETUP_INSTRUCTIONS.txt](SETUP_INSTRUCTIONS.txt) for complete installation a
 4. Click each button once to register them
 5. They will now automatically toggle each other!
 
+## Mac Users
+
+Initial users have reported issues on Mac. For now debug logging is turned on on Mac. Please bear with us
+
 ## Usage Tips
 
 - **Normal click**: Shows dialog when high-PDC plugins are found (128) or when re-enabling plugins (1024)
