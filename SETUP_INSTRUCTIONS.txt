@@ -1,0 +1,94 @@
+SETUP INSTRUCTIONS FOR BUFFER SIZE TOOLBAR BUTTONS
+==================================================
+
+REQUIREMENTS:
+-------------
+- js_ReaScriptAPI extension (for window manipulation)
+- SWS extension (for getting FX latency/PDC information)
+  Download from: https://www.sws-extension.org/
+
+FEATURES:
+---------
+- Set buffer size to 128 or 1024 with toolbar buttons
+- Automatically scans for high PDC (Plugin Delay Compensation) FX when switching to 128
+- Option to disable high-latency FX for low-latency recording
+- Automatically offers to re-enable disabled FX when switching back to 1024
+- Buttons highlight/de-highlight each other (mutually exclusive)
+- PDC threshold is configurable (default: 128 samples)
+
+INSTALLATION:
+-------------
+
+1. Add both scripts to Reaper:
+   - Actions → Show action list
+   - Click "New action" → "Load ReaScript"
+   - Load "Set block size to 128.lua"
+   - Load "Set block size to 1024.lua"
+
+2. Get the Custom IDs for cross-referencing:
+   After loading each script, you need to note their custom command IDs:
+   
+   a) In the Actions list, find "Set block/buffer size to 128"
+   b) Right-click it → "Copy selected action command ID"
+   c) The ID will look like: _RS8e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b (example)
+   
+   d) Repeat for "Set block/buffer size to 1024"
+
+3. Update the scripts with the correct IDs:
+   
+   In "Set block size to 128.lua", find line:
+   local cmd_1024 = reaper.NamedCommandLookup("_RS7d3c5d8b8d7e4f9c8e7d6c5b4a3e2d1f")
+   
+   Replace the ID with the actual command ID from the 1024 script.
+   
+   In "Set block size to 1024.lua", find line:
+   local cmd_128 = reaper.NamedCommandLookup("_RS8e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b")
+   
+   Replace the ID with the actual command ID from the 128 script.
+
+4. Add to toolbar:
+   - Right-click on toolbar → Customize toolbar
+   - Find both scripts in the action list
+   - Drag them to your toolbar
+   - Click OK
+
+5. The buttons will now:
+   - Highlight when clicked
+   - Automatically de-highlight the other button
+   - Set the buffer size accordingly
+   - (128 button) Scan for high PDC FX and offer to disable them
+   - (1024 button) Offer to re-enable previously disabled FX
+
+USAGE:
+------
+When switching to 128 buffer (for low-latency recording):
+- Script scans all tracks for FX with PDC > 128 samples
+- If found, shows a dialog listing the problematic FX
+- Options:
+  * Yes: Disable the FX and set buffer to 128
+  * No: Just set buffer to 128 (keep FX enabled)
+  * Cancel: Don't change anything
+
+When switching to 1024 buffer (for mixing/processing):
+- If any FX were previously disabled, offers to re-enable them
+- Options:
+  * Yes: Re-enable all previously disabled FX
+  * No: Keep them disabled and clear the list
+  * Cancel: Don't change anything
+
+CUSTOMIZATION:
+--------------
+To change the PDC threshold, edit "Set block size to 128.lua":
+  Line 10: local PDC_THRESHOLD = 128  -- Change this value
+
+REQUIREMENTS:
+-------------
+- js_ReaScriptAPI extension (install from ReaPack)
+- SWS extension (https://www.sws-extension.org/)
+Both extensions are free and widely used in the Reaper community.
+
+TECHNICAL NOTES:
+----------------
+- Disabled FX info is stored in project extended state
+- FX are verified by GUID before re-enabling (safe if FX chain was modified)
+- Track names and FX positions are stored for reference
