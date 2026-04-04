@@ -15,3 +15,7 @@ If you have multiple takes of a song, it is often helpful to split items into li
 ## Multiple Output Switching
 
 I have mixing headphones, tracking headphones, and monitor speakers, all connected to an interface with multiple headphone and speaker outputs.  These scripts let you set up toolbar buttons (or shortcuts) to instantly switch between outputs, muting the others.  A how-to document and a youTube video are in production to explain the process.
+
+## Mark Takes When Reviewing
+
+When reviewing a performance, it is good to be able to annotate the takes with good and bad sections, making it easy to go back and punch in retakes.  This script provides a UI which allows you to tag playback sections as good or bad for pitch, timing or expression.  Simply click the relevant button for the duration of the section and a take marker of the relevant length will get added to the currently audible take/lane in your performance.
