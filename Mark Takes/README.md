@@ -1,0 +1,67 @@
+# Mark Takes — Annotate your performance so you know what to re-do
+
+A REAPER script that provides a floating GUI for grading takes in real time during playback (or recording). Click and hold on a button to mark a section as good or bad for pitch, timing, or expression — a coloured take marker spanning the held duration is added to the currently audible take.
+
+## What It Does
+
+While playing back a multi-take recording using REAPER's Fixed Item Lanes, the script lets you annotate sections without stopping:
+
+| Button | Marker Name | Colour |
+|--------|------------|--------|
+| **Pitch +** | Pitch Good | Green |
+| **Pitch -** | Pitch Bad | Red |
+| **Time +** | Timing Good | Cyan |
+| **Time -** | Timing Bad | Magenta |
+| **Expr +** | Expression Good | Yellow |
+| **Expr -** | Expression Bad | Orange |
+
+Each marker has a duration matching how long the button was held.
+
+### Source Lane Awareness
+
+By default, markers are placed on the **source lane** that is feeding the comp at the current play position (determined by REAPER's LINKEDLANE comp data). A checkbox lets you switch to marking the comp output lane directly instead.
+
+When you re-comp your lanes, REAPER automatically mirrors source lane markers to the comp output.
+
+### Cleanup Tools
+
+- **Clear Markers in Time Selection** — removes all take markers within the current time selection on the selected track.
+- **Clear Markers in Selected Items** — removes all take markers from currently selected items (useful with right-click drag selection).
+- **Remove Markers From Areas Not Used In Comp** — intelligently removes markers whose time range is no longer part of the active comp. Checks each marker individually against the comp data, so a marker that spans into a region where the comp switched to a different lane will be purged.
+
+### Other Features
+
+- Spacebar is forwarded to REAPER's Play/Stop transport, so you can start/stop playback even when the Vocal Grader window has focus.
+- Buttons use large text (36px) for easy targeting during playback.
+- All destructive cleanup operations are wrapped in undo blocks.
+
+## Requirements
+
+- **REAPER** v6.73 or later (for Fixed Item Lanes support)
+- **ReaImGui** extension (provides the GUI framework)
+
+## Installation
+
+1. **Install ReaImGui** (if not already installed):
+   - In REAPER, go to **Extensions → ReaPack → Browse packages**
+   - Search for **ReaImGui**
+   - Right-click → **Install**
+   - Restart REAPER when prompted
+
+2. **Add the script to REAPER**:
+   - Go to **Actions → Show action list**
+   - Click **New action → Load ReaScript...**
+   - Navigate to this folder and select **Mark Takes.lua**
+   - Click **OK**
+
+3. **Run the script**:
+   - Find "Mark Takes" in the action list and click **Run**
+   - Optionally, assign a keyboard shortcut or add it to a toolbar for quick access
+
+## Usage
+
+1. Select the track containing your vocal takes in Fixed Item Lanes
+2. Start playback
+3. Hold a grade button for the duration of the section you want to mark
+4. Release the button — a coloured take marker spanning that duration appears on the source lane
+5. Use the cleanup buttons to tidy up after re-comping
