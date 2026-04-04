@@ -25,6 +25,8 @@ local active_markers = {}
 local target_source_lane = true
 local marker_counter = 0
 local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
+local rename_idx = nil
+local rename_buf = ''
 
 -- Populate review list from existing take markers on the selected track
 local function LoadExistingMarkers()
@@ -32,27 +34,44 @@ local function LoadExistingMarkers()
     marker_counter = 0
     local track = reaper.GetSelectedTrack(0, 0)
     if not track then return end
-    -- Build a reverse lookup: button name -> ImGui color
+    -- Build lookups: button name -> ImGui color, native color -> ImGui color
     local name_to_color = {}
+    local native_to_imgui = {}
     for _, btn in ipairs(buttons) do
         name_to_color[btn.name] = btn.color
+        local r = (btn.color >> 24) & 0xFF
+        local g = (btn.color >> 16) & 0xFF
+        local b = (btn.color >> 8) & 0xFF
+        local nc = reaper.ColorToNative(r, g, b) | 0x1000000
+        native_to_imgui[nc] = btn.color
     end
     local max_counter = 0
+    local seen = {}  -- deduplicate by tag name
     for i = 0, reaper.CountTrackMediaItems(track) - 1 do
         local item = reaper.GetTrackMediaItem(track, i)
         local take = reaper.GetActiveTake(item)
         if take then
             for j = 0, reaper.GetNumTakeMarkers(take) - 1 do
-                local srcpos, name = reaper.GetTakeMarker(take, j)
-                -- Match our naming pattern: "ButtonName #N"
-                local base, num = name:match("^(.+) #(%d+)$")
-                if base and name_to_color[base] then
-                    local n = tonumber(num)
-                    if n > max_counter then max_counter = n end
-                    table.insert(marker_log, {
-                        tag = name, color = name_to_color[base],
-                        take = take, srcpos = srcpos, item = item
-                    })
+                local srcpos, name, marker_color = reaper.GetTakeMarker(take, j)
+                if not seen[name] then
+                    -- Try name pattern first
+                    local base, num = name:match("^(.+) #(%d+)$")
+                    local imgui_color
+                    if base and name_to_color[base] then
+                        imgui_color = name_to_color[base]
+                        local n = tonumber(num)
+                        if n > max_counter then max_counter = n end
+                    elseif native_to_imgui[marker_color] then
+                        -- Renamed marker — match by color
+                        imgui_color = native_to_imgui[marker_color]
+                    end
+                    if imgui_color then
+                        seen[name] = true
+                        table.insert(marker_log, {
+                            tag = name, color = imgui_color,
+                            take = take, srcpos = srcpos, item = item
+                        })
+                    end
                 end
             end
         end
@@ -371,8 +390,8 @@ function loop()
         reaper.ImGui_WindowFlags_AlwaysAutoResize() | reaper.ImGui_WindowFlags_NoNavInputs())
     
     if visible then
-        -- Forward spacebar to REAPER transport (Play/Stop)
-        if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
+        -- Forward spacebar to REAPER transport (Play/Stop), but not while typing in a popup
+        if not rename_idx and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
             reaper.Main_OnCommand(40044, 0) -- Transport: Play/Stop
         end
         
@@ -461,8 +480,12 @@ function loop()
                             reaper.SetEditCurPos(timeline_pos, true, true)
                         end
                     end
-                    -- Right-click context menu to delete
+                    -- Right-click context menu
                     if reaper.ImGui_BeginPopupContextItem(ctx) then
+                        if reaper.ImGui_MenuItem(ctx, 'Rename marker') then
+                            rename_idx = li
+                            rename_buf = entry.tag
+                        end
                         if reaper.ImGui_MenuItem(ctx, 'Delete marker') then
                             delete_idx = li
                         end
@@ -471,6 +494,49 @@ function loop()
                     reaper.ImGui_PopStyleColor(ctx)
                 end
                 reaper.ImGui_EndChild(ctx)
+                -- Rename popup
+                if rename_idx then
+                    reaper.ImGui_OpenPopup(ctx, 'Rename Marker')
+                end
+                if reaper.ImGui_BeginPopupModal(ctx, 'Rename Marker', true, reaper.ImGui_WindowFlags_AlwaysAutoResize()) then
+                    local changed, val = reaper.ImGui_InputText(ctx, '##rename', rename_buf)
+                    if changed then rename_buf = val end
+                    -- Auto-focus the input on first frame
+                    if reaper.ImGui_IsWindowAppearing(ctx) then
+                        reaper.ImGui_SetKeyboardFocusHere(ctx, -1)
+                    end
+                    if reaper.ImGui_Button(ctx, 'OK', 120, 0) or reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Enter()) then
+                        local new_name = rename_buf:match('^%s*(.-)%s*$')
+                        if new_name and #new_name > 0 and rename_idx then
+                            local entry = marker_log[rename_idx]
+                            local old_tag = entry.tag
+                            if reaper.ValidatePtr(entry.take, 'MediaItem_Take*') then
+                                local item = reaper.GetMediaItemTake_Item(entry.take)
+                                local track = reaper.GetMediaItemTrack(item)
+                                local escaped_old = old_tag:gsub('([%(%)%.%%%+%-%*%?%[%^%$])', '%%%1')
+                                for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+                                    local it = reaper.GetTrackMediaItem(track, i)
+                                    local _, chunk = reaper.GetItemStateChunk(it, '', false)
+                                    local new_chunk = chunk:gsub('(TKM %S+ ")' .. escaped_old .. '(" %S+)', '%1' .. new_name .. '%2')
+                                    if new_chunk ~= chunk then
+                                        reaper.SetItemStateChunk(it, new_chunk, false)
+                                        reaper.UpdateItemInProject(it)
+                                    end
+                                end
+                                reaper.UpdateArrange()
+                            end
+                            entry.tag = new_name
+                        end
+                        rename_idx = nil
+                        reaper.ImGui_CloseCurrentPopup(ctx)
+                    end
+                    reaper.ImGui_SameLine(ctx)
+                    if reaper.ImGui_Button(ctx, 'Cancel', 120, 0) or reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
+                        rename_idx = nil
+                        reaper.ImGui_CloseCurrentPopup(ctx)
+                    end
+                    reaper.ImGui_EndPopup(ctx)
+                end
                 -- Process deletion outside the loop
                 if delete_idx then
                     local entry = marker_log[delete_idx]

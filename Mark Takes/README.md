@@ -46,7 +46,7 @@ When you re-comp your lanes, REAPER automatically mirrors source lane markers to
 A panel on the right side of the window shows all markers created during the session, colour-coded to match their grade type. When the script opens, it automatically loads any existing markers from the selected track.
 
 - **Left-click** an entry to navigate the edit cursor to that marker's position.
-- **Right-click** an entry to delete it (removes the take marker from the track as well).
+- **Right-click** an entry to rename or delete it. Renaming updates the take marker on the track; deleting removes it entirely.
 
 The list updates automatically after using any of the cleanup tools.
 
