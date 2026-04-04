@@ -41,6 +41,15 @@ By default, markers are placed on the **source lane** that is feeding the comp a
 
 When you re-comp your lanes, REAPER automatically mirrors source lane markers to the comp output.
 
+### Review List
+
+A panel on the right side of the window shows all markers created during the session, colour-coded to match their grade type. When the script opens, it automatically loads any existing markers from the selected track.
+
+- **Left-click** an entry to navigate the edit cursor to that marker's position.
+- **Right-click** an entry to delete it (removes the take marker from the track as well).
+
+The list updates automatically after using any of the cleanup tools.
+
 ### Cleanup Tools
 
 - **Clear Markers in Time Selection** — removes all take markers within the current time selection on the selected track.
