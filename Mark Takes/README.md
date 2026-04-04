@@ -58,7 +58,7 @@ The list updates automatically after using any of the cleanup tools.
 
 ### Other Features
 
-- Spacebar is forwarded to REAPER's Play/Stop transport, so you can start/stop playback even when the Vocal Grader window has focus.
+- Spacebar is forwarded to REAPER's Play/Stop transport, so you can start/stop playback even when the addin window has focus.
 - Buttons use large text (36px) for easy targeting during playback.
 - All destructive cleanup operations are wrapped in undo blocks.
 
@@ -87,7 +87,7 @@ The list updates automatically after using any of the cleanup tools.
 
 ## Usage
 
-1. Select the track containing your vocal takes in Fixed Item Lanes
+1. Select the track containing your takes in Fixed Item Lanes
 2. Start playback
 3. Hold a grade button for the duration of the section you want to mark
 4. Release the button — a coloured take marker spanning that duration appears on the source lane

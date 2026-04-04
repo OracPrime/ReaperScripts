@@ -1,5 +1,5 @@
--- @description Vocal Grading Console
--- @author Gemini
+-- @description Take Marking Tool
+-- @author David Christensen
 -- @version 1.2
 
 -- Check for ReaImGui API
@@ -8,7 +8,7 @@ if not reaper.ImGui_CreateContext then
     return
 end
 
-local ctx = reaper.ImGui_CreateContext('Vocal Grader')
+local ctx = reaper.ImGui_CreateContext('Mark Takes')
 local main_font = reaper.ImGui_CreateFont('sans-serif', 0)
 reaper.ImGui_Attach(ctx, main_font)
 
@@ -367,7 +367,7 @@ function loop()
     -- Set window to stay on top
     reaper.ImGui_SetNextWindowBgAlpha(ctx, 0.8)
     reaper.ImGui_SetNextWindowSizeConstraints(ctx, 550, 0, math.huge, math.huge)
-    local visible, open = reaper.ImGui_Begin(ctx, 'Vocal Grader', true,
+    local visible, open = reaper.ImGui_Begin(ctx, 'Mark Takes', true,
         reaper.ImGui_WindowFlags_AlwaysAutoResize() | reaper.ImGui_WindowFlags_NoNavInputs())
     
     if visible then
