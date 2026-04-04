@@ -22,6 +22,8 @@ local buttons = {
 }
 
 local active_markers = {} 
+local target_source_lane = true
+local marker_counter = 0
 
 function GetTargetTake()
     local play_pos = reaper.GetPlayPosition2()
@@ -55,14 +57,88 @@ function GetTargetTake()
     return nil, nil
 end
 
+function GetSourceTake()
+    local play_pos = reaper.GetPlayPosition2()
+    local track = reaper.GetSelectedTrack(0, 0)
+    if not track then return nil end
+    
+    -- Parse LINKEDLANE entries from track chunk to find comp source lane at play position
+    local _, chunk = reaper.GetTrackStateChunk(track, "", false)
+    local source_lane = nil
+    for line in chunk:gmatch("[^\n]+") do
+        local ll_start, ll_end, ll_lane = line:match("LINKEDLANE (%S+) (%S+) (%S+)")
+        if ll_start then
+            ll_start, ll_end, ll_lane = tonumber(ll_start), tonumber(ll_end), tonumber(ll_lane)
+            if play_pos >= ll_start and play_pos <= ll_end then
+                source_lane = ll_lane
+                break
+            end
+        end
+    end
+    if not source_lane then return nil end
+    
+    -- Find the item on the source lane at the play position
+    for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+        local item = reaper.GetTrackMediaItem(track, i)
+        local i_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+        local i_len = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
+        if play_pos >= i_start and play_pos <= (i_start + i_len) then
+            local item_lane = reaper.GetMediaItemInfo_Value(item, "I_FIXEDLANE")
+            if item_lane == source_lane then
+                return reaper.GetActiveTake(item), i_start
+            end
+        end
+    end
+    return nil, nil
+end
+
 function IsTransportActive()
     local state = reaper.GetPlayState()
     return (state & 1 ~= 0) or (state & 4 ~= 0) -- playing or recording
 end
 
+-- Helper: create a take marker and capture its chunk position string
+local function CreateMarkerOnTake(take, srcpos, tag, native_color)
+    local idx = reaper.SetTakeMarker(take, -1, tag, srcpos, native_color)
+    local item = reaper.GetMediaItemTake_Item(take)
+    local _, chunk = reaper.GetItemStateChunk(item, "", false)
+    local chunk_pos_str
+    local escaped_tag = tag:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+    for line in chunk:gmatch("[^\n]+") do
+        local pos_str = line:match('TKM (%S+) "' .. escaped_tag .. '" ' .. native_color)
+        if pos_str then chunk_pos_str = pos_str end
+    end
+    reaper.UpdateItemInProject(item)
+    return idx, chunk_pos_str
+end
+
+-- Helper: update a marker's duration via chunk editing
+local function UpdateMarkerDuration(take, chunk_pos, tag, native_color, duration)
+    if not chunk_pos then return end
+    local item = reaper.GetMediaItemTake_Item(take)
+    local _, chunk = reaper.GetItemStateChunk(item, "", false)
+    local escaped_name = tag:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+    local pattern = 'TKM ' .. chunk_pos .. ' "' .. escaped_name .. '" ' .. native_color .. ' %S+'
+    local replacement = string.format('TKM %s "%s" %d %s',
+        chunk_pos, tag, native_color, string.format("%.14g", duration))
+    local new_chunk, count = chunk:gsub(pattern, replacement)
+    if count > 0 then
+        reaper.SetItemStateChunk(item, new_chunk, false)
+    end
+    reaper.UpdateItemInProject(item)
+    -- Poke the marker system to trigger Region/Marker Manager refresh
+    local temp = reaper.SetTakeMarker(take, -1, "__refresh__", 0, 0)
+    if temp >= 0 then reaper.DeleteTakeMarker(take, temp) end
+end
+
 function MarkArea(btn_idx)
     if not IsTransportActive() then return end
-    local take, item_start = GetTargetTake()
+    local take, item_start
+    if target_source_lane then
+        take, item_start = GetSourceTake()
+    else
+        take, item_start = GetTargetTake()
+    end
     if not take then return end
     
     local play_pos = reaper.GetPlayPosition2()
@@ -71,40 +147,28 @@ function MarkArea(btn_idx)
     local btn = buttons[btn_idx]
 
     if not active_markers[btn_idx] then
-        -- Create new marker (convert ImGui RGBA color to native REAPER color)
+        -- Convert ImGui RGBA color to native REAPER color
         local r = (btn.color >> 24) & 0xFF
         local g = (btn.color >> 16) & 0xFF
         local b = (btn.color >> 8) & 0xFF
         local native_color = reaper.ColorToNative(r, g, b) | 0x1000000
-        local idx = reaper.SetTakeMarker(take, -1, btn.name, srcpos, native_color)
-        -- Read back the chunk to capture REAPER's exact position string for later matching
-        local item = reaper.GetMediaItemTake_Item(take)
-        local _, chunk = reaper.GetItemStateChunk(item, "", false)
-        local chunk_pos_str
-        for line in chunk:gmatch("[^\n]+") do
-            local pos_str = line:match('TKM (%S+) "' .. btn.name .. '" ' .. native_color)
-            if pos_str then chunk_pos_str = pos_str end -- last match = most recently added
-        end
-        active_markers[btn_idx] = { take = take, idx = idx, start = srcpos, btn = btn, native_color = native_color, chunk_pos = chunk_pos_str }
+        marker_counter = marker_counter + 1
+        local tag = string.format("%s #%d", btn.name, marker_counter)
+        
+        -- Create marker on primary take (REAPER's comp system mirrors to output lane automatically)
+        local idx, chunk_pos_str = CreateMarkerOnTake(take, srcpos, tag, native_color)
+        
+        active_markers[btn_idx] = { take = take, idx = idx, start = srcpos, btn = btn,
+            native_color = native_color, chunk_pos = chunk_pos_str, tag = tag }
     else
-        -- Update existing marker duration via state chunk (SetTakeMarker ignores 6th arg)
+        -- Update existing marker duration
         local m = active_markers[btn_idx]
         if m.take == take and m.chunk_pos then
             local duration = srcpos - m.start
-            local item = reaper.GetMediaItemTake_Item(m.take)
-            local _, chunk = reaper.GetItemStateChunk(item, "", false)
-            -- Use the exact position string captured from REAPER's chunk
-            local escaped_name = m.btn.name:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
-            local pattern = 'TKM ' .. m.chunk_pos .. ' "' .. escaped_name .. '" ' .. m.native_color .. ' %S+'
-            local replacement = string.format('TKM %s "%s" %d %s',
-                m.chunk_pos, m.btn.name, m.native_color,
-                string.format("%.14g", duration))
-            local new_chunk, count = chunk:gsub(pattern, replacement)
-            if count > 0 then
-                reaper.SetItemStateChunk(item, new_chunk, false)
-            end
+            UpdateMarkerDuration(m.take, m.chunk_pos, m.tag, m.native_color, duration)
         end
     end
+    reaper.MarkProjectDirty(0)
     reaper.UpdateArrange()
     reaper.UpdateTimeline()
 end
@@ -189,6 +253,10 @@ function loop()
             reaper.ImGui_PopStyleColor(ctx, 4)
             if i % 2 == 0 then reaper.ImGui_Spacing(ctx) else reaper.ImGui_SameLine(ctx) end
         end
+        
+        reaper.ImGui_SeparatorText(ctx, 'Options')
+        local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark comp output lane', not target_source_lane)
+        if changed then target_source_lane = not val end
         
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
         if reaper.ImGui_Button(ctx, 'Clear Time Selection', -1, 35) then ClearTimeSelection() end
