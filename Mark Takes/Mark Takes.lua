@@ -13,17 +13,18 @@ local main_font = reaper.ImGui_CreateFont('sans-serif', 0)
 reaper.ImGui_Attach(ctx, main_font)
 
 local buttons = {
-    { label = "Pitch +", color = 0x00FF00FF, name = "Pitch Good" },
-    { label = "Pitch -", color = 0xFF0000FF, name = "Pitch Bad" },
-    { label = "Time +",  color = 0x00FFFFFF, name = "Timing Good" },
-    { label = "Time -",  color = 0xFF00FFFF, name = "Timing Bad" },
-    { label = "Expr +",  color = 0xFFFF00FF, name = "Expression Good" },
-    { label = "Expr -",  color = 0xFFA500FF, name = "Expression Bad" }
+    { label = "Pitch +", color = 0x66FF66FF, name = "Pitch Good" },
+    { label = "Pitch -", color = 0xFF5555FF, name = "Pitch Bad" },
+    { label = "Time +",  color = 0x66FFFFFF, name = "Timing Good" },
+    { label = "Time -",  color = 0xFF66FFFF, name = "Timing Bad" },
+    { label = "Expr +",  color = 0xFFFF66FF, name = "Expression Good" },
+    { label = "Expr -",  color = 0xFFBB44FF, name = "Expression Bad" }
 }
 
 local active_markers = {} 
 local target_source_lane = true
 local marker_counter = 0
+local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
 
 -- Timing constants (seconds)
 local REACTION_TIME = 0.5   -- backdate marker start to compensate for human reaction time
@@ -173,6 +174,12 @@ function MarkArea(btn_idx)
         
         active_markers[btn_idx] = { take = take, idx = idx, start = backdated, btn = btn,
             native_color = native_color, chunk_pos = chunk_pos_str, tag = tag }
+        -- Log for the review list
+        local item = reaper.GetMediaItemTake_Item(take)
+        table.insert(marker_log, {
+            tag = tag, color = btn.color, take = take,
+            srcpos = backdated, item = item
+        })
     else
         -- Update existing marker duration
         local m = active_markers[btn_idx]
@@ -322,7 +329,7 @@ function loop()
     reaper.ImGui_PushFont(ctx, main_font, 16)
     -- Set window to stay on top
     reaper.ImGui_SetNextWindowBgAlpha(ctx, 0.8)
-    reaper.ImGui_SetNextWindowSizeConstraints(ctx, 370, 0, math.huge, math.huge)
+    reaper.ImGui_SetNextWindowSizeConstraints(ctx, 550, 0, math.huge, math.huge)
     local visible, open = reaper.ImGui_Begin(ctx, 'Vocal Grader', true,
         reaper.ImGui_WindowFlags_AlwaysAutoResize() | reaper.ImGui_WindowFlags_NoNavInputs())
     
@@ -331,6 +338,13 @@ function loop()
         if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
             reaper.Main_OnCommand(40044, 0) -- Transport: Play/Stop
         end
+        
+        -- Two-column layout: controls left, review list right
+        if reaper.ImGui_BeginTable(ctx, 'main_layout', 2, reaper.ImGui_TableFlags_SizingStretchProp()) then
+        reaper.ImGui_TableSetupColumn(ctx, 'controls', reaper.ImGui_TableColumnFlags_WidthFixed(), 340)
+        reaper.ImGui_TableSetupColumn(ctx, 'review', reaper.ImGui_TableColumnFlags_WidthStretch())
+        reaper.ImGui_TableNextRow(ctx)
+        reaper.ImGui_TableNextColumn(ctx)
         
         -- Rewind buttons
         reaper.ImGui_PushFont(ctx, main_font, 36)
@@ -387,10 +401,72 @@ function loop()
             if i % 2 == 0 then reaper.ImGui_Spacing(ctx) else reaper.ImGui_SameLine(ctx) end
         end
         
+        -- Right column: Review list
+        reaper.ImGui_TableNextColumn(ctx)
+        reaper.ImGui_Text(ctx, 'Review (' .. #marker_log .. ')')
+        reaper.ImGui_Spacing(ctx)
+        if #marker_log > 0 then
+            if reaper.ImGui_BeginChild(ctx, 'marker_list', -1, 300) then
+                local delete_idx
+                for li = 1, #marker_log do
+                    local entry = marker_log[li]
+                    reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), entry.color)
+                    if reaper.ImGui_Selectable(ctx, entry.tag .. '##' .. li) then
+                        -- Navigate to marker position on timeline
+                        local item = entry.item
+                        if reaper.ValidatePtr(item, 'MediaItem*') then
+                            local i_pos = reaper.GetMediaItemInfo_Value(item, 'D_POSITION')
+                            local src_offset = 0
+                            if reaper.ValidatePtr(entry.take, 'MediaItem_Take*') then
+                                src_offset = reaper.GetMediaItemTakeInfo_Value(entry.take, 'D_STARTOFFS')
+                            end
+                            local timeline_pos = i_pos + (entry.srcpos - src_offset)
+                            reaper.SetEditCurPos(timeline_pos, true, true)
+                        end
+                    end
+                    -- Right-click context menu to delete
+                    if reaper.ImGui_BeginPopupContextItem(ctx) then
+                        if reaper.ImGui_MenuItem(ctx, 'Delete marker') then
+                            delete_idx = li
+                        end
+                        reaper.ImGui_EndPopup(ctx)
+                    end
+                    reaper.ImGui_PopStyleColor(ctx)
+                end
+                reaper.ImGui_EndChild(ctx)
+                -- Process deletion outside the loop
+                if delete_idx then
+                    local entry = marker_log[delete_idx]
+                    -- Delete take marker by name from ALL items on the track (source + comp mirror)
+                    if reaper.ValidatePtr(entry.take, 'MediaItem_Take*') then
+                        local item = reaper.GetMediaItemTake_Item(entry.take)
+                        local track = reaper.GetMediaItemTrack(item)
+                        local escaped_tag = entry.tag:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+                        for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+                            local it = reaper.GetTrackMediaItem(track, i)
+                            local _, chunk = reaper.GetItemStateChunk(it, "", false)
+                            -- Remove any TKM line matching this tag
+                            local new_chunk = chunk:gsub('TKM %S+ "' .. escaped_tag .. '" %S+[^\n]*\n', '')
+                            if new_chunk ~= chunk then
+                                reaper.SetItemStateChunk(it, new_chunk, false)
+                                reaper.UpdateItemInProject(it)
+                            end
+                        end
+                        reaper.UpdateArrange()
+                    end
+                    table.remove(marker_log, delete_idx)
+                end
+            end
+        else
+            reaper.ImGui_TextDisabled(ctx, 'No markers yet')
+        end
+        
+        reaper.ImGui_EndTable(ctx)
+        end -- BeginTable
+        
         reaper.ImGui_SeparatorText(ctx, 'Options')
         local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark comp output lane', not target_source_lane)
         if changed then target_source_lane = not val end
-        
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
         if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection() end
         if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems() end
@@ -404,7 +480,9 @@ function loop()
         reaper.ImGui_End(ctx)
     end
     reaper.ImGui_PopFont(ctx)
-    if open then reaper.defer(loop) end
+    if open then
+        reaper.defer(loop)
+    end
 end
 
 reaper.defer(loop)
