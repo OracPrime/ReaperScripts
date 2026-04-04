@@ -51,6 +51,15 @@ local function LoadExistingMarkers()
         local item = reaper.GetTrackMediaItem(track, i)
         local take = reaper.GetActiveTake(item)
         if take then
+            -- Parse TKM lines from chunk to get durations
+            local _, chunk = reaper.GetItemStateChunk(item, '', false)
+            local tkm_durations = {}  -- name -> duration
+            for line in chunk:gmatch('[^\n]+') do
+                local pos_str, tkm_name, tkm_color, tkm_dur = line:match('TKM (%S+) "(.-)" (%S+) (%S+)')
+                if tkm_name then
+                    tkm_durations[tkm_name] = tonumber(tkm_dur) or 0
+                end
+            end
             for j = 0, reaper.GetNumTakeMarkers(take) - 1 do
                 local srcpos, name, marker_color = reaper.GetTakeMarker(take, j)
                 if not seen[name] then
@@ -69,7 +78,8 @@ local function LoadExistingMarkers()
                         seen[name] = true
                         table.insert(marker_log, {
                             tag = name, color = imgui_color,
-                            take = take, srcpos = srcpos, item = item
+                            take = take, srcpos = srcpos, item = item,
+                            duration = tkm_durations[name] or DEFAULT_LENGTH
                         })
                     end
                 end
@@ -85,6 +95,7 @@ LoadExistingMarkers()
 -- Timing constants (seconds)
 local REACTION_TIME = 0.5   -- backdate marker start to compensate for human reaction time
 local DEFAULT_LENGTH = 1.0  -- minimum marker length for a quick click
+local PUNCH_BUFFER = 1.0    -- seconds of padding before/after marker for punch-in time selection
 
 function GetTargetTake()
     local play_pos = reaper.GetPlayPosition2()
@@ -241,7 +252,7 @@ function MarkArea(btn_idx)
         local item = reaper.GetMediaItemTake_Item(take)
         table.insert(marker_log, {
             tag = tag, color = btn.color, take = take,
-            srcpos = backdated, item = item
+            srcpos = backdated, item = item, duration = DEFAULT_LENGTH
         })
     else
         -- Update existing marker duration
@@ -452,8 +463,16 @@ function loop()
                     local src_offset = reaper.GetMediaItemTakeInfo_Value(m.take, "D_STARTOFFS")
                     local srcpos = (play_pos - item_start) + src_offset
                     local held_duration = srcpos - m.start
+                    local final_duration = math.max(held_duration, DEFAULT_LENGTH)
                     if held_duration < DEFAULT_LENGTH then
                         UpdateMarkerDuration(m.take, m.chunk_pos, m.tag, m.native_color, DEFAULT_LENGTH)
+                    end
+                    -- Update duration in marker_log
+                    for li = #marker_log, 1, -1 do
+                        if marker_log[li].tag == m.tag then
+                            marker_log[li].duration = final_duration
+                            break
+                        end
                     end
                 end
                 active_markers[i] = nil
@@ -492,6 +511,24 @@ function loop()
                         if reaper.ImGui_MenuItem(ctx, 'Rename marker') then
                             rename_idx = li
                             rename_buf = entry.tag
+                        end
+                        if reaper.ImGui_MenuItem(ctx, 'Select marker length') then
+                            if reaper.ValidatePtr(entry.item, 'MediaItem*') and reaper.ValidatePtr(entry.take, 'MediaItem_Take*') then
+                                local i_pos = reaper.GetMediaItemInfo_Value(entry.item, 'D_POSITION')
+                                local src_offset = reaper.GetMediaItemTakeInfo_Value(entry.take, 'D_STARTOFFS')
+                                local ts_start = i_pos + (entry.srcpos - src_offset)
+                                local ts_end = ts_start + (entry.duration or DEFAULT_LENGTH)
+                                reaper.GetSet_LoopTimeRange(true, false, ts_start, ts_end, false)
+                            end
+                        end
+                        if reaper.ImGui_MenuItem(ctx, 'Select with buffer') then
+                            if reaper.ValidatePtr(entry.item, 'MediaItem*') and reaper.ValidatePtr(entry.take, 'MediaItem_Take*') then
+                                local i_pos = reaper.GetMediaItemInfo_Value(entry.item, 'D_POSITION')
+                                local src_offset = reaper.GetMediaItemTakeInfo_Value(entry.take, 'D_STARTOFFS')
+                                local ts_start = i_pos + (entry.srcpos - src_offset) - PUNCH_BUFFER
+                                local ts_end = i_pos + (entry.srcpos - src_offset) + (entry.duration or DEFAULT_LENGTH) + PUNCH_BUFFER
+                                reaper.GetSet_LoopTimeRange(true, false, math.max(0, ts_start), ts_end, false)
+                            end
                         end
                         if reaper.ImGui_MenuItem(ctx, 'Delete marker') then
                             delete_idx = li

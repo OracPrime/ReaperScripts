@@ -62,6 +62,22 @@ The list updates automatically after using any of the cleanup tools.
 - Buttons use large text (36px) for easy targeting during playback.
 - All destructive cleanup operations are wrapped in undo blocks.
 
+### Punch-In and Time Selection Tools
+
+For fast punch-in recording and review, the review list offers two right-click options on each marker:
+
+- **Select marker length** — Sets the time selection to exactly match the marker's duration.
+- **Select with buffer** — Sets the time selection to the marker's range, but with extra time before and after (default: 1 second each side, adjustable via the `PUNCH_BUFFER` constant at the top of the script).
+
+This makes it easy to line up for auto-punch recording or to rehearse a section with a little lead-in and tail. To use:
+
+1. Right-click a marker in the review list.
+2. Choose **Select with buffer** (or **Select marker length** for an exact fit).
+3. Arm your track and enable auto-punch (time selection) in REAPER.
+4. Hit record — REAPER will punch in for just the selected section, with the buffer for a natural lead-in/out.
+
+You can adjust the buffer by editing the `PUNCH_BUFFER` value in the script (default is 1.0 second).
+
 ## Requirements
 
 - **REAPER** v6.73 or later (for Fixed Item Lanes support)
