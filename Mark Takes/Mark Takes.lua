@@ -126,12 +126,14 @@ function GetSourceTake()
     -- Parse LINKEDLANE entries from track chunk to find comp source lane at play position
     local _, chunk = reaper.GetTrackStateChunk(track, "", false)
     local source_lane = nil
+    local comp_seg_start = nil
     for line in chunk:gmatch("[^\n]+") do
         local ll_start, ll_end, ll_lane = line:match("LINKEDLANE (%S+) (%S+) (%S+)")
         if ll_start then
             ll_start, ll_end, ll_lane = tonumber(ll_start), tonumber(ll_end), tonumber(ll_lane)
             if play_pos >= ll_start and play_pos <= ll_end then
                 source_lane = ll_lane
+                comp_seg_start = ll_start
                 break
             end
         end
@@ -146,7 +148,7 @@ function GetSourceTake()
         if play_pos >= i_start and play_pos <= (i_start + i_len) then
             local item_lane = reaper.GetMediaItemInfo_Value(item, "I_FIXEDLANE")
             if item_lane == source_lane then
-                return reaper.GetActiveTake(item), i_start
+                return reaper.GetActiveTake(item), i_start, comp_seg_start
             end
         end
     end
@@ -200,9 +202,9 @@ end
 
 function MarkArea(btn_idx)
     if not IsTransportActive() then return end
-    local take, item_start
+    local take, item_start, comp_start
     if target_source_lane then
-        take, item_start = GetSourceTake()
+        take, item_start, comp_start = GetSourceTake()
     else
         take, item_start = GetTargetTake()
     end
@@ -222,8 +224,13 @@ function MarkArea(btn_idx)
         marker_counter = marker_counter + 1
         local tag = string.format("%s #%d", btn.name, marker_counter)
         
-        -- Backdate start position to compensate for reaction time
-        local backdated = math.max(src_offset, srcpos - REACTION_TIME)
+        -- Backdate start position: don't go before item start or comp segment start
+        local earliest = src_offset
+        if comp_start then
+            local comp_src = (comp_start - item_start) + src_offset
+            if comp_src > earliest then earliest = comp_src end
+        end
+        local backdated = math.max(earliest, srcpos - REACTION_TIME)
         
         -- Create marker on primary take (REAPER's comp system mirrors to output lane automatically)
         local idx, chunk_pos_str = CreateMarkerOnTake(take, backdated, tag, native_color)
