@@ -28,6 +28,8 @@ local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
 
 -- Populate review list from existing take markers on the selected track
 local function LoadExistingMarkers()
+    marker_log = {}
+    marker_counter = 0
     local track = reaper.GetSelectedTrack(0, 0)
     if not track then return end
     -- Build a reverse lookup: button name -> ImGui color
@@ -503,13 +505,13 @@ function loop()
         local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
         if changed then target_source_lane = not val end
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
-        if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection() end
-        if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems() end
+        if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection(); LoadExistingMarkers() end
+        if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems(); LoadExistingMarkers() end
         
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0x880000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xAA0000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0x660000FF)
-        if reaper.ImGui_Button(ctx, 'Remove Markers From Areas Not Used In Comp', -1, 35) then PurgeGhostMarkers() end
+        if reaper.ImGui_Button(ctx, 'Remove Markers From Areas Not Used In Comp', -1, 35) then PurgeGhostMarkers(); LoadExistingMarkers() end
         reaper.ImGui_PopStyleColor(ctx, 3)
         
         reaper.ImGui_End(ctx)
