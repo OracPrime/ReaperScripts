@@ -9,8 +9,8 @@ if not reaper.ImGui_CreateContext then
 end
 
 local ctx = reaper.ImGui_CreateContext('Vocal Grader')
-local sans_serif = reaper.ImGui_CreateFont('sans-serif', 15)
-reaper.ImGui_Attach(ctx, sans_serif)
+local main_font = reaper.ImGui_CreateFont('sans-serif', 0)
+reaper.ImGui_Attach(ctx, main_font)
 
 local buttons = {
     { label = "Pitch +", color = 0x00FF00FF, name = "Pitch Good" },
@@ -200,27 +200,114 @@ end
 function PurgeGhostMarkers()
     local track = reaper.GetSelectedTrack(0, 0)
     if not track then return end
+    
+    -- Get playing lanes (comp output lanes)
+    local num_lanes = reaper.GetMediaTrackInfo_Value(track, "I_NUMFIXEDLANES")
+    local playing_lanes = {}
+    for lane = 0, num_lanes - 1 do
+        if reaper.GetMediaTrackInfo_Value(track, "C_LANEPLAYS:" .. lane) == 1 then
+            playing_lanes[lane] = true
+        end
+    end
+    
+    -- Parse LINKEDLANE entries (comp overrides) from track chunk
+    local _, tchunk = reaper.GetTrackStateChunk(track, "", false)
+    local linked_lanes = {}
+    for line in tchunk:gmatch("[^\n]+") do
+        local ll_start, ll_end, ll_lane = line:match("LINKEDLANE (%S+) (%S+) (%S+)")
+        if ll_start then
+            table.insert(linked_lanes, {
+                s = tonumber(ll_start), e = tonumber(ll_end), lane = tonumber(ll_lane)
+            })
+        end
+    end
+    
+    -- Check if a lane is active in the comp for an entire time range
+    local function lane_active_for_range(item_lane, range_start, range_end)
+        -- Collect all LINKEDLANE overrides within this range
+        for _, ll in ipairs(linked_lanes) do
+            if ll.s < range_end and ll.e > range_start then
+                -- An override exists in this range
+                if ll.lane ~= item_lane then
+                    -- Override points to a different lane — this lane is NOT active here
+                    return false
+                end
+            end
+        end
+        -- No conflicting overrides; check if the base playing lane matches
+        return playing_lanes[item_lane] == true
+    end
+    
     reaper.Undo_BeginBlock()
     for i = 0, reaper.CountTrackMediaItems(track) - 1 do
         local item = reaper.GetTrackMediaItem(track, i)
-        -- In Fixed Lanes, we purge items that are muted (not in the current comp)
-        if reaper.GetMediaItemInfo_Value(item, "B_MUTE") == 1 then
-            local take = reaper.GetActiveTake(item)
-            if take then
-                for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
+        local item_lane = reaper.GetMediaItemInfo_Value(item, "I_FIXEDLANE")
+        local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+        local take = reaper.GetActiveTake(item)
+        if take then
+            local src_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
+            -- Parse TKM entries from chunk to get durations
+            local _, ichunk = reaper.GetItemStateChunk(item, "", false)
+            local tkm_list = {}
+            for line in ichunk:gmatch("[^\n]+") do
+                local pos, name, color, dur = line:match('TKM (%S+) "(.-)" (%S+) (%S+)')
+                if pos then
+                    table.insert(tkm_list, {
+                        srcpos = tonumber(pos),
+                        duration = tonumber(dur) or 0
+                    })
+                end
+            end
+            
+            -- Delete markers whose time range is not fully in the comp
+            for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
+                local m_srcpos = reaper.GetTakeMarker(take, j)
+                local m_timeline_start = item_start + (m_srcpos - src_offset)
+                
+                -- Find matching TKM entry for duration
+                local m_duration = 0
+                for _, tkm in ipairs(tkm_list) do
+                    if math.abs(tkm.srcpos - m_srcpos) < 0.0001 then
+                        m_duration = tkm.duration
+                        break
+                    end
+                end
+                
+                local m_timeline_end = m_timeline_start + m_duration
+                if m_duration <= 0 then m_timeline_end = m_timeline_start + 0.001 end
+                
+                if not lane_active_for_range(item_lane, m_timeline_start, m_timeline_end) then
                     reaper.DeleteTakeMarker(take, j)
                 end
             end
         end
     end
-    reaper.Undo_EndBlock("Purge muted lane markers", -1)
+    reaper.Undo_EndBlock("Purge non-comp lane markers", -1)
+    reaper.UpdateArrange()
+end
+
+function ClearSelectedItems()
+    local count = reaper.CountSelectedMediaItems(0)
+    if count == 0 then return end
+    reaper.Undo_BeginBlock()
+    for i = 0, count - 1 do
+        local item = reaper.GetSelectedMediaItem(0, i)
+        local take = reaper.GetActiveTake(item)
+        if take then
+            for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
+                reaper.DeleteTakeMarker(take, j)
+            end
+        end
+    end
+    reaper.Undo_EndBlock("Clear take markers from selected items", -1)
     reaper.UpdateArrange()
 end
 
 function loop()
-    reaper.ImGui_PushFont(ctx, sans_serif, 0)
+    reaper.ImGui_PushFont(ctx, main_font, 16)
     -- Set window to stay on top
     reaper.ImGui_SetNextWindowBgAlpha(ctx, 0.8)
+    reaper.ImGui_SetNextWindowSizeConstraints(ctx, 370, 0, math.huge, math.huge)
     local visible, open = reaper.ImGui_Begin(ctx, 'Vocal Grader', true,
         reaper.ImGui_WindowFlags_AlwaysAutoResize() | reaper.ImGui_WindowFlags_NoNavInputs())
     
@@ -242,13 +329,17 @@ function loop()
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), hovered)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), active)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), 0x000000FF)
-            reaper.ImGui_Button(ctx, btn.label, 120, 60)
+            reaper.ImGui_PushFont(ctx, main_font, 36)
+            local avail_w = reaper.ImGui_GetContentRegionAvail(ctx)
+            local btn_w = (i % 2 == 1) and (avail_w * 0.5 - 4) or -0.0001
+            reaper.ImGui_Button(ctx, btn.label, btn_w, 0)
             
             if reaper.ImGui_IsItemActive(ctx) then
                 MarkArea(i)
             elseif reaper.ImGui_IsItemDeactivated(ctx) then
                 active_markers[i] = nil
             end
+            reaper.ImGui_PopFont(ctx)
             
             reaper.ImGui_PopStyleColor(ctx, 4)
             if i % 2 == 0 then reaper.ImGui_Spacing(ctx) else reaper.ImGui_SameLine(ctx) end
@@ -259,12 +350,13 @@ function loop()
         if changed then target_source_lane = not val end
         
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
-        if reaper.ImGui_Button(ctx, 'Clear Time Selection', -1, 35) then ClearTimeSelection() end
+        if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection() end
+        if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems() end
         
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0x880000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xAA0000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0x660000FF)
-        if reaper.ImGui_Button(ctx, 'Purge Muted Lane Markers', -1, 35) then PurgeGhostMarkers() end
+        if reaper.ImGui_Button(ctx, 'Remove Markers From Areas Not Used In Comp', -1, 35) then PurgeGhostMarkers() end
         reaper.ImGui_PopStyleColor(ctx, 3)
         
         reaper.ImGui_End(ctx)
