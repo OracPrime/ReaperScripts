@@ -7,7 +7,7 @@ A REAPER script that provides a floating GUI for grading takes in real time duri
 While playing back a multi-take recording using REAPER's Fixed Item Lanes, the script lets you annotate sections without stopping:
 
 | Button | Marker Name | Colour |
-|--------|------------|--------|
+| -------- | ----------- | ------ |
 | **Pitch +** | Pitch Good | Green |
 | **Pitch -** | Pitch Bad | Red |
 | **Time +** | Timing Good | Cyan |
