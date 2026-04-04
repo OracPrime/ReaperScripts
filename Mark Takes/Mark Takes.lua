@@ -26,6 +26,41 @@ local target_source_lane = true
 local marker_counter = 0
 local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
 
+-- Populate review list from existing take markers on the selected track
+local function LoadExistingMarkers()
+    local track = reaper.GetSelectedTrack(0, 0)
+    if not track then return end
+    -- Build a reverse lookup: button name -> ImGui color
+    local name_to_color = {}
+    for _, btn in ipairs(buttons) do
+        name_to_color[btn.name] = btn.color
+    end
+    local max_counter = 0
+    for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+        local item = reaper.GetTrackMediaItem(track, i)
+        local take = reaper.GetActiveTake(item)
+        if take then
+            for j = 0, reaper.GetNumTakeMarkers(take) - 1 do
+                local srcpos, name = reaper.GetTakeMarker(take, j)
+                -- Match our naming pattern: "ButtonName #N"
+                local base, num = name:match("^(.+) #(%d+)$")
+                if base and name_to_color[base] then
+                    local n = tonumber(num)
+                    if n > max_counter then max_counter = n end
+                    table.insert(marker_log, {
+                        tag = name, color = name_to_color[base],
+                        take = take, srcpos = srcpos, item = item
+                    })
+                end
+            end
+        end
+    end
+    marker_counter = max_counter
+    -- Sort by source position so list is in chronological order
+    table.sort(marker_log, function(a, b) return a.srcpos < b.srcpos end)
+end
+LoadExistingMarkers()
+
 -- Timing constants (seconds)
 local REACTION_TIME = 0.5   -- backdate marker start to compensate for human reaction time
 local DEFAULT_LENGTH = 1.0  -- minimum marker length for a quick click
@@ -465,7 +500,7 @@ function loop()
         end -- BeginTable
         
         reaper.ImGui_SeparatorText(ctx, 'Options')
-        local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark comp output lane', not target_source_lane)
+        local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
         if changed then target_source_lane = not val end
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
         if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection() end
