@@ -15,7 +15,25 @@ While playing back a multi-take recording using REAPER's Fixed Item Lanes, the s
 | **Expr +** | Expression Good | Yellow |
 | **Expr -** | Expression Bad | Orange |
 
-Each marker has a duration matching how long the button was held.
+Each marker has a duration matching how long the button was held, with timing adjustments to account for human reaction time (see below).
+
+### Reaction Time and Quick Clicks
+
+The script compensates for the delay between hearing something and clicking:
+
+- **Reaction time offset (0.5s)** — every marker's start position is backdated by half a second, so the marker begins closer to where the issue actually was rather than where you reacted to it.
+- **Minimum marker length (1.0s)** — a quick click produces a 1-second marker rather than a tiny sliver. If you hold the button longer than 1 second, the actual held duration is used instead.
+
+Both values are constants at the top of the script (`REACTION_TIME` and `DEFAULT_LENGTH`) and can be adjusted to taste.
+
+### Rewind Buttons
+
+Two rewind buttons sit above the grade buttons:
+
+- **<< 2s** — jumps playback back two seconds
+- **< 1s** — jumps playback back one second
+
+These only move the playback position; the edit cursor stays where it is. Handy for re-listening to a section you want to re-grade.
 
 ### Source Lane Awareness
 

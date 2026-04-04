@@ -25,6 +25,10 @@ local active_markers = {}
 local target_source_lane = true
 local marker_counter = 0
 
+-- Timing constants (seconds)
+local REACTION_TIME = 0.5   -- backdate marker start to compensate for human reaction time
+local DEFAULT_LENGTH = 1.0  -- minimum marker length for a quick click
+
 function GetTargetTake()
     local play_pos = reaper.GetPlayPosition2()
     local track = reaper.GetSelectedTrack(0, 0)
@@ -97,6 +101,12 @@ function IsTransportActive()
     return (state & 1 ~= 0) or (state & 4 ~= 0) -- playing or recording
 end
 
+function SeekPlayback(time)
+    local cur = reaper.GetCursorPosition()
+    reaper.SetEditCurPos(time, false, true)
+    reaper.SetEditCurPos(cur, false, false)
+end
+
 -- Helper: create a take marker and capture its chunk position string
 local function CreateMarkerOnTake(take, srcpos, tag, native_color)
     local idx = reaper.SetTakeMarker(take, -1, tag, srcpos, native_color)
@@ -155,10 +165,13 @@ function MarkArea(btn_idx)
         marker_counter = marker_counter + 1
         local tag = string.format("%s #%d", btn.name, marker_counter)
         
-        -- Create marker on primary take (REAPER's comp system mirrors to output lane automatically)
-        local idx, chunk_pos_str = CreateMarkerOnTake(take, srcpos, tag, native_color)
+        -- Backdate start position to compensate for reaction time
+        local backdated = math.max(src_offset, srcpos - REACTION_TIME)
         
-        active_markers[btn_idx] = { take = take, idx = idx, start = srcpos, btn = btn,
+        -- Create marker on primary take (REAPER's comp system mirrors to output lane automatically)
+        local idx, chunk_pos_str = CreateMarkerOnTake(take, backdated, tag, native_color)
+        
+        active_markers[btn_idx] = { take = take, idx = idx, start = backdated, btn = btn,
             native_color = native_color, chunk_pos = chunk_pos_str, tag = tag }
     else
         -- Update existing marker duration
@@ -185,9 +198,11 @@ function ClearTimeSelection()
         local take = reaper.GetActiveTake(item)
         local i_pos = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
         if take then
+            local src_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
             for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
-                local m_pos = reaper.GetTakeMarker(take, j)
-                if (i_pos + m_pos) >= start_ts and (i_pos + m_pos) <= end_ts then
+                local m_srcpos = reaper.GetTakeMarker(take, j)
+                local m_timeline = i_pos + (m_srcpos - src_offset)
+                if m_timeline >= start_ts and m_timeline <= end_ts then
                     reaper.DeleteTakeMarker(take, j)
                 end
             end
@@ -316,6 +331,20 @@ function loop()
         if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
             reaper.Main_OnCommand(40044, 0) -- Transport: Play/Stop
         end
+        
+        -- Rewind buttons
+        reaper.ImGui_PushFont(ctx, main_font, 36)
+        local avail_w = reaper.ImGui_GetContentRegionAvail(ctx)
+        if reaper.ImGui_Button(ctx, '<< 2s', avail_w * 0.5 - 4, 0) then
+            SeekPlayback(math.max(0, reaper.GetPlayPosition2() - 2))
+        end
+        reaper.ImGui_SameLine(ctx)
+        if reaper.ImGui_Button(ctx, '< 1s', -0.0001, 0) then
+            SeekPlayback(math.max(0, reaper.GetPlayPosition2() - 1))
+        end
+        reaper.ImGui_PopFont(ctx)
+        reaper.ImGui_Spacing(ctx)
+        
         reaper.ImGui_Text(ctx, "Hold button to mark duration:")
         for i, btn in ipairs(buttons) do
             -- Style button with darkened hover/active variants and dark text for contrast
@@ -337,6 +366,19 @@ function loop()
             if reaper.ImGui_IsItemActive(ctx) then
                 MarkArea(i)
             elseif reaper.ImGui_IsItemDeactivated(ctx) then
+                -- On release, enforce minimum marker length for quick clicks
+                local m = active_markers[i]
+                if m and m.chunk_pos then
+                    local play_pos = reaper.GetPlayPosition2()
+                    local item = reaper.GetMediaItemTake_Item(m.take)
+                    local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+                    local src_offset = reaper.GetMediaItemTakeInfo_Value(m.take, "D_STARTOFFS")
+                    local srcpos = (play_pos - item_start) + src_offset
+                    local held_duration = srcpos - m.start
+                    if held_duration < DEFAULT_LENGTH then
+                        UpdateMarkerDuration(m.take, m.chunk_pos, m.tag, m.native_color, DEFAULT_LENGTH)
+                    end
+                end
                 active_markers[i] = nil
             end
             reaper.ImGui_PopFont(ctx)
