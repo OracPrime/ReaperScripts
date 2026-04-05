@@ -27,6 +27,7 @@ local marker_counter = 0
 local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
 local rename_idx = nil
 local rename_buf = ''
+local last_track = reaper.GetSelectedTrack(0, 0)
 
 -- Detect whether the selected track uses fixed lanes (2) or traditional takes
 local function IsFixedLaneMode()
@@ -476,6 +477,12 @@ function ClearSelectedItems()
 end
 
 function loop()
+    -- Refresh review list when selected track changes
+    local cur_track = reaper.GetSelectedTrack(0, 0)
+    if cur_track ~= last_track then
+        last_track = cur_track
+        LoadExistingMarkers()
+    end
     reaper.ImGui_PushFont(ctx, main_font, 16)
     -- Set window to stay on top
     reaper.ImGui_SetNextWindowBgAlpha(ctx, 0.8)
@@ -484,6 +491,18 @@ function loop()
         reaper.ImGui_WindowFlags_AlwaysAutoResize() | reaper.ImGui_WindowFlags_NoNavInputs())
     
     if visible then
+        -- Check track selection
+        local sel_track_count = reaper.CountSelectedTracks(0)
+        if sel_track_count ~= 1 then
+            reaper.ImGui_PushFont(ctx, main_font, 36)
+            reaper.ImGui_TextDisabled(ctx, 'Select exactly one track')
+            reaper.ImGui_PopFont(ctx)
+            reaper.ImGui_End(ctx)
+            reaper.ImGui_PopFont(ctx)
+            if open then reaper.defer(loop) end
+            return
+        end
+
         -- Forward spacebar to REAPER transport (Play/Stop), but not while typing in a popup
         if not rename_idx and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
             reaper.Main_OnCommand(40044, 0) -- Transport: Play/Stop

@@ -2,9 +2,11 @@
 
 A REAPER script that provides a floating GUI for grading takes in real time during playback (or recording). Click and hold on a button to mark a section as good or bad for pitch, timing, or expression — a coloured take marker spanning the held duration is added to the currently audible take.
 
+The script works with both **Fixed Item Lanes** and **traditional (stacked) takes**. It automatically detects which mode the selected track is using and adapts the UI accordingly.
+
 ## What It Does
 
-While playing back a multi-take recording using REAPER's Fixed Item Lanes, the script lets you annotate sections without stopping:
+While playing back a multi-take recording, the script lets you annotate sections without stopping:
 
 | Button | Marker Name | Colour |
 | -------- | ----------- | ------ |
@@ -35,11 +37,13 @@ Two rewind buttons sit above the grade buttons:
 
 These only move the playback position; the edit cursor stays where it is. Handy for re-listening to a section you want to re-grade.
 
-### Source Lane Awareness
+### Source Lane Awareness *(Fixed Lanes only)*
 
 By default, markers are placed on the **source lane** that is feeding the comp at the current play position (determined by REAPER's LINKEDLANE comp data). A checkbox lets you switch to marking the comp output lane directly instead.
 
 When you re-comp your lanes, REAPER automatically mirrors source lane markers to the comp output.
+
+This option and its checkbox are hidden when using traditional takes, since there is no comp to target.
 
 ### Review List
 
@@ -54,7 +58,7 @@ The list updates automatically after using any of the cleanup tools.
 
 - **Clear Markers in Time Selection** — removes all take markers within the current time selection on the selected track.
 - **Clear Markers in Selected Items** — removes all take markers from currently selected items (useful with right-click drag selection).
-- **Remove Markers From Areas Not Used In Comp** — intelligently removes markers whose time range is no longer part of the active comp. Checks each marker individually against the comp data, so a marker that spans into a region where the comp switched to a different lane will be purged.
+- **Remove Markers From Areas Not Used In Comp** *(Fixed Lanes only)* — intelligently removes markers whose time range is no longer part of the active comp. Checks each marker individually against the comp data, so a marker that spans into a region where the comp switched to a different lane will be purged. This button is hidden when using traditional takes.
 
 ### Other Features
 
@@ -80,7 +84,7 @@ You can adjust the buffer by editing the `PUNCH_BUFFER` value in the script (def
 
 ## Requirements
 
-- **REAPER** v6.73 or later (for Fixed Item Lanes support)
+- **REAPER** v6.73 or later (v6.73+ required for Fixed Item Lanes; traditional takes work on any recent version)
 - **ReaImGui** extension (provides the GUI framework)
 
 ## Installation
@@ -103,8 +107,8 @@ You can adjust the buffer by editing the `PUNCH_BUFFER` value in the script (def
 
 ## Usage
 
-1. Select the track containing your takes in Fixed Item Lanes
+1. Select a single track containing your takes (Fixed Item Lanes or traditional stacked takes)
 2. Start playback
 3. Hold a grade button for the duration of the section you want to mark
-4. Release the button — a coloured take marker spanning that duration appears on the source lane
-5. Use the cleanup buttons to tidy up after re-comping
+4. Release the button — a coloured take marker spanning that duration appears on the active take (or source lane in Fixed Lanes mode)
+5. Use the cleanup buttons to tidy up after re-comping or switching takes
