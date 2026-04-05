@@ -503,9 +503,29 @@ function loop()
             return
         end
 
-        -- Forward spacebar to REAPER transport (Play/Stop), but not while typing in a popup
-        if not rename_idx and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Space()) then
-            reaper.Main_OnCommand(40044, 0) -- Transport: Play/Stop
+        -- Forward common keyboard shortcuts to REAPER (unless rename popup is open)
+        if not rename_idx then
+            local shift = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftShift())
+                       or reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_RightShift())
+            local ctrl  = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftCtrl())
+                       or reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_RightCtrl())
+            local function key(name)
+                return reaper.ImGui_IsKeyPressed(ctx, reaper['ImGui_Key_' .. name]())
+            end
+            -- Transport
+            if key('Space') and not ctrl and not shift then reaper.Main_OnCommand(40044, 0) end -- Play/Stop
+            if key('Enter') and not ctrl then reaper.Main_OnCommand(1013, 0) end -- Record
+            -- Take switching
+            if key('T') and not ctrl and not shift then reaper.Main_OnCommand(40125, 0) end -- Next take
+            if key('T') and shift and not ctrl then reaper.Main_OnCommand(40126, 0) end -- Prev take
+            -- Navigation
+            if key('Home') then reaper.Main_OnCommand(40042, 0) end -- Go to start
+            if key('End') then reaper.Main_OnCommand(40043, 0) end -- Go to end
+            -- Undo/Redo
+            if key('Z') and ctrl and not shift then reaper.Main_OnCommand(40029, 0) end -- Undo
+            if key('Z') and ctrl and shift then reaper.Main_OnCommand(40030, 0) end -- Redo
+            -- Save
+            if key('S') and ctrl and not shift then reaper.Main_OnCommand(40026, 0) end -- Save
         end
         
         -- Two-column layout: controls left, review list right

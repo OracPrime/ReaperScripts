@@ -62,9 +62,11 @@ The list updates automatically after using any of the cleanup tools.
 
 ### Other Features
 
-- Spacebar is forwarded to REAPER's Play/Stop transport, so you can start/stop playback even when the addin window has focus.
+- Common keyboard shortcuts are forwarded to REAPER while the window has focus[^1].
 - Buttons use large text (36px) for easy targeting during playback.
 - All destructive cleanup operations are wrapped in undo blocks.
+
+[^1]: The following shortcuts are forwarded: **Space** (Play/Stop), **Enter** (Record), **T** (Next take), **Shift+T** (Previous take), **Home**/**End** (Go to start/end), **Ctrl+Z** (Undo), **Ctrl+Shift+Z** (Redo), **Ctrl+S** (Save). Additional shortcuts can be added to the key forwarding block in the script. Keyboard forwarding is suppressed while the rename popup is open.
 
 ### Punch-In and Time Selection Tools
 
