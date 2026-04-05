@@ -602,8 +602,8 @@ function loop()
         reaper.ImGui_TableNextColumn(ctx)
         reaper.ImGui_Text(ctx, 'Review (' .. #marker_log .. ')')
         reaper.ImGui_Spacing(ctx)
-        if #marker_log > 0 then
-            if reaper.ImGui_BeginChild(ctx, 'marker_list', -1, 300) then
+        if reaper.ImGui_BeginChild(ctx, 'marker_list', -1, 300) then
+            if #marker_log > 0 then
                 local delete_idx
                 for li = 1, #marker_log do
                     local entry = marker_log[li]
@@ -652,7 +652,6 @@ function loop()
                     end
                     reaper.ImGui_PopStyleColor(ctx)
                 end
-                reaper.ImGui_EndChild(ctx)
                 -- Rename popup
                 if rename_idx then
                     reaper.ImGui_OpenPopup(ctx, 'Rename Marker')
@@ -718,30 +717,32 @@ function loop()
                     end
                     table.remove(marker_log, delete_idx)
                 end
+            else
+                reaper.ImGui_TextDisabled(ctx, 'No markers yet')
             end
-        else
-            reaper.ImGui_TextDisabled(ctx, 'No markers yet')
+            reaper.ImGui_EndChild(ctx)
         end
         
         reaper.ImGui_EndTable(ctx)
         end -- BeginTable
         
-        reaper.ImGui_SeparatorText(ctx, 'Options')
-        local use_fixed = IsFixedLaneMode()
-        if use_fixed then
-            local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
-            if changed then target_source_lane = not val end
-        end
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
         if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection(); LoadExistingMarkers() end
         if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems(); LoadExistingMarkers() end
         
+        local use_fixed = IsFixedLaneMode()
         if use_fixed then
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0x880000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xAA0000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0x660000FF)
         if reaper.ImGui_Button(ctx, 'Remove Markers From Areas Not Used In Comp', -1, 35) then PurgeGhostMarkers(); LoadExistingMarkers() end
         reaper.ImGui_PopStyleColor(ctx, 3)
+        end
+        
+        if use_fixed then
+            reaper.ImGui_SeparatorText(ctx, 'Options')
+            local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
+            if changed then target_source_lane = not val end
         end
         
         reaper.ImGui_End(ctx)
