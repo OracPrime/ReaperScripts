@@ -28,6 +28,13 @@ local marker_log = {}  -- { { tag, color, take, srcpos, item } ... }
 local rename_idx = nil
 local rename_buf = ''
 
+-- Detect whether the selected track uses fixed lanes (2) or traditional takes
+local function IsFixedLaneMode()
+    local track = reaper.GetSelectedTrack(0, 0)
+    if not track then return false end
+    return reaper.GetMediaTrackInfo_Value(track, 'I_FREEMODE') == 2
+end
+
 -- Populate review list from existing take markers on the selected track
 local function LoadExistingMarkers()
     marker_log = {}
@@ -47,10 +54,14 @@ local function LoadExistingMarkers()
     end
     local max_counter = 0
     local seen = {}  -- deduplicate by tag name
+    local use_fixed = IsFixedLaneMode()
     for i = 0, reaper.CountTrackMediaItems(track) - 1 do
         local item = reaper.GetTrackMediaItem(track, i)
-        local take = reaper.GetActiveTake(item)
-        if take then
+        -- In traditional mode, scan all takes; in fixed lane mode, only the active take
+        local num_takes = use_fixed and 1 or reaper.CountTakes(item)
+        for ti = 0, num_takes - 1 do
+            local take = use_fixed and reaper.GetActiveTake(item) or reaper.GetTake(item, ti)
+            if take then
             -- Parse TKM lines from chunk to get durations
             local _, chunk = reaper.GetItemStateChunk(item, '', false)
             local tkm_durations = {}  -- name -> duration
@@ -84,8 +95,9 @@ local function LoadExistingMarkers()
                     end
                 end
             end
-        end
-    end
+            end -- if take
+        end -- for ti
+    end -- for i
     marker_counter = max_counter
     -- Sort by source position so list is in chronological order
     table.sort(marker_log, function(a, b) return a.srcpos < b.srcpos end)
@@ -96,6 +108,23 @@ LoadExistingMarkers()
 local REACTION_TIME = 0.5   -- backdate marker start to compensate for human reaction time
 local DEFAULT_LENGTH = 1.0  -- minimum marker length for a quick click
 local PUNCH_BUFFER = 1.0    -- seconds of padding before/after marker for punch-in time selection
+
+-- Get the active take at current play position (traditional takes mode)
+function GetTraditionalTake()
+    local play_pos = reaper.GetPlayPosition2()
+    local track = reaper.GetSelectedTrack(0, 0)
+    if not track then return nil end
+    for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+        local item = reaper.GetTrackMediaItem(track, i)
+        local i_start = reaper.GetMediaItemInfo_Value(item, 'D_POSITION')
+        local i_len = reaper.GetMediaItemInfo_Value(item, 'D_LENGTH')
+        if play_pos >= i_start and play_pos <= (i_start + i_len) then
+            local take = reaper.GetActiveTake(item)
+            if take then return take, i_start end
+        end
+    end
+    return nil, nil
+end
 
 function GetTargetTake()
     local play_pos = reaper.GetPlayPosition2()
@@ -214,10 +243,14 @@ end
 function MarkArea(btn_idx)
     if not IsTransportActive() then return end
     local take, item_start, comp_start
-    if target_source_lane then
-        take, item_start, comp_start = GetSourceTake()
+    if IsFixedLaneMode() then
+        if target_source_lane then
+            take, item_start, comp_start = GetSourceTake()
+        else
+            take, item_start = GetTargetTake()
+        end
     else
-        take, item_start = GetTargetTake()
+        take, item_start = GetTraditionalTake()
     end
     if not take then return end
     
@@ -272,21 +305,54 @@ function ClearTimeSelection()
     if start_ts == end_ts then return end
     local track = reaper.GetSelectedTrack(0, 0)
     if not track then return end
+    local use_fixed = IsFixedLaneMode()
     
+    -- Collect srcpos values that fall within the time selection
+    local to_remove = {}  -- set of srcpos strings to remove from chunks
     reaper.Undo_BeginBlock()
     for i = 0, reaper.CountTrackMediaItems(track) - 1 do
         local item = reaper.GetTrackMediaItem(track, i)
-        local take = reaper.GetActiveTake(item)
         local i_pos = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
-        if take then
-            local src_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
-            for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
-                local m_srcpos = reaper.GetTakeMarker(take, j)
-                local m_timeline = i_pos + (m_srcpos - src_offset)
-                if m_timeline >= start_ts and m_timeline <= end_ts then
-                    reaper.DeleteTakeMarker(take, j)
+        local num_takes = use_fixed and 1 or reaper.CountTakes(item)
+        for ti = 0, num_takes - 1 do
+            local take = use_fixed and reaper.GetActiveTake(item) or reaper.GetTake(item, ti)
+            if take then
+                local src_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
+                for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
+                    local m_srcpos = reaper.GetTakeMarker(take, j)
+                    local m_timeline = i_pos + (m_srcpos - src_offset)
+                    if m_timeline >= start_ts and m_timeline <= end_ts then
+                        reaper.DeleteTakeMarker(take, j)
+                    end
                 end
             end
+        end
+    end
+    -- Also strip matching TKM lines from chunks across all items on track
+    -- (handles comp mirrors in fixed lane mode)
+    for i = 0, reaper.CountTrackMediaItems(track) - 1 do
+        local item = reaper.GetTrackMediaItem(track, i)
+        local i_pos = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+        local _, chunk = reaper.GetItemStateChunk(item, '', false)
+        local new_chunk = chunk
+        for line in chunk:gmatch('[^\n]+') do
+            local pos_str, tkm_name = line:match('TKM (%S+) "(.-)"')
+            if pos_str then
+                local srcpos = tonumber(pos_str)
+                -- Estimate timeline position from any take on this item
+                local take = reaper.GetActiveTake(item)
+                if take then
+                    local src_offset = reaper.GetMediaItemTakeInfo_Value(take, 'D_STARTOFFS')
+                    local m_timeline = i_pos + (srcpos - src_offset)
+                    if m_timeline >= start_ts and m_timeline <= end_ts then
+                        new_chunk = new_chunk:gsub(line:gsub('([%(%)%.%%%+%-%*%?%[%^%$])', '%%%1') .. '\n', '')
+                    end
+                end
+            end
+        end
+        if new_chunk ~= chunk then
+            reaper.SetItemStateChunk(item, new_chunk, false)
+            reaper.UpdateItemInProject(item)
         end
     end
     reaper.Undo_EndBlock("Clear take markers in time selection", -1)
@@ -388,11 +454,21 @@ function ClearSelectedItems()
     reaper.Undo_BeginBlock()
     for i = 0, count - 1 do
         local item = reaper.GetSelectedMediaItem(0, i)
-        local take = reaper.GetActiveTake(item)
-        if take then
-            for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
-                reaper.DeleteTakeMarker(take, j)
+        -- Delete via API from all takes
+        for ti = 0, reaper.CountTakes(item) - 1 do
+            local take = reaper.GetTake(item, ti)
+            if take then
+                for j = reaper.GetNumTakeMarkers(take) - 1, 0, -1 do
+                    reaper.DeleteTakeMarker(take, j)
+                end
             end
+        end
+        -- Also strip all TKM lines from chunk (catches comp mirrors)
+        local _, chunk = reaper.GetItemStateChunk(item, '', false)
+        local new_chunk = chunk:gsub('TKM %S+ ".-" %S+[^\n]*\n', '')
+        if new_chunk ~= chunk then
+            reaper.SetItemStateChunk(item, new_chunk, false)
+            reaper.UpdateItemInProject(item)
         end
     end
     reaper.Undo_EndBlock("Clear take markers from selected items", -1)
@@ -612,17 +688,22 @@ function loop()
         end -- BeginTable
         
         reaper.ImGui_SeparatorText(ctx, 'Options')
-        local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
-        if changed then target_source_lane = not val end
+        local use_fixed = IsFixedLaneMode()
+        if use_fixed then
+            local changed, val = reaper.ImGui_Checkbox(ctx, 'Mark only comp output lane', not target_source_lane)
+            if changed then target_source_lane = not val end
+        end
         reaper.ImGui_SeparatorText(ctx, 'Cleanup')
         if reaper.ImGui_Button(ctx, 'Clear Markers in Time Selection', -1, 35) then ClearTimeSelection(); LoadExistingMarkers() end
         if reaper.ImGui_Button(ctx, 'Clear Markers in Selected Items', -1, 35) then ClearSelectedItems(); LoadExistingMarkers() end
         
+        if use_fixed then
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0x880000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xAA0000FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0x660000FF)
         if reaper.ImGui_Button(ctx, 'Remove Markers From Areas Not Used In Comp', -1, 35) then PurgeGhostMarkers(); LoadExistingMarkers() end
         reaper.ImGui_PopStyleColor(ctx, 3)
+        end
         
         reaper.ImGui_End(ctx)
     end
