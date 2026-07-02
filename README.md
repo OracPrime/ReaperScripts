@@ -19,3 +19,11 @@ I have mixing headphones, tracking headphones, and monitor speakers, all connect
 ## Mark Takes When Reviewing
 
 When reviewing a performance, it is good to be able to annotate the takes with good and bad sections, making it easy to go back and punch in retakes.  This script provides a UI which allows you to tag playback sections as good or bad for pitch, timing or expression.  Simply click the relevant button for the duration of the section and a take marker of the relevant length will get added to the currently audible take/lane in your performance.
+
+## Add a ZenoMod VU meter as InputFX to selected track(s)
+
+When setting input levels on external hardware it is good to be able to see the recording levels in Reaper.  This script, which I attach to a main toolbar button, ensures that there is an instance of ZenoMod's excellent VU Meter on the selected tracks, and it is set to summed (Mono) mode.
+
+## Harmonica Scope
+
+A tool to monitor a channel that you are playing harmonica on. Aimed at students it tries to measure which hole or holes you are drawing or blowing.  Excellent for helping you acquire single note as well as chord technique.  Doesn't cope with bends.... yet.
