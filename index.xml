@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="eb2e57bb8935cf5c017f58e6ebf0067071085100" name="OracPrime Scripts">
+<index version="1" commit="ff764d2bc9e8e9eb01ca42d2b80004cb426b5865" name="OracPrime Scripts">
   <category name="Buffer Size Buttons">
     <reapack name="Set block size to 1024.lua" type="script" desc="Set block/buffer size to 1024">
       <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T10:02:08Z">
@@ -30,6 +30,9 @@
       </version>
       <version name="1.0.1" author="OracPrime + Gemini" time="2026-07-03T13:03:45Z">
         <source>https://github.com/OracPrime/ReaperScripts/raw/eb2e57bb8935cf5c017f58e6ebf0067071085100/HarmonicaScope/HarmonicaScope.jsfx</source>
+      </version>
+      <version name="2.7" author="OracPrime + Gemini" time="2026-07-03T22:51:23Z">
+        <source>https://github.com/OracPrime/ReaperScripts/raw/ff764d2bc9e8e9eb01ca42d2b80004cb426b5865/HarmonicaScope/HarmonicaScope.jsfx</source>
       </version>
     </reapack>
   </category>
