@@ -2,9 +2,6 @@
 --@description Set block/buffer size to 1024
 --@version 0.1
 --@changelog Initial release
---@metapackage
---@provides
---   [main] . > Set Tracking Mode
 
 local selected_size = "1024"
 

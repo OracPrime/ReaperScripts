@@ -2,9 +2,6 @@
 --@description Set block/buffer size to 128
 --@version 0.1
 --@changelog initial release
---@metapackage
---@provides
---   [main] . > Set Tracking Mode
 
 local selected_size = "128"
 local PDC_THRESHOLD = 128  -- Maximum acceptable PDC in samples

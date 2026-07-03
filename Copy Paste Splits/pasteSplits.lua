@@ -1,6 +1,7 @@
 -- @description Apply previously copied split times from the clipboard to the selected items, splitting them accordingly
 -- @author OracPrime
 -- @version 0.1
+-- @noindex
 
 -- Function to print debug messages
 function Msg(str)

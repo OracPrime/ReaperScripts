@@ -1,6 +1,7 @@
 -- @description #desc
 -- @author OracPrime
 -- @version 0.1
+-- @noindex
 
 -- Function to print debug messages
 function Msg(str)

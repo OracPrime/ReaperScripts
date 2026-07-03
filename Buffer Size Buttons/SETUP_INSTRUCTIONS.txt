@@ -1,3 +1,4 @@
+@noindex
 SETUP INSTRUCTIONS FOR BUFFER SIZE TOOLBAR BUTTONS
 ==================================================
 

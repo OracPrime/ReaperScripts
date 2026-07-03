@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" commit="85b7c3c5e08b28345d1b596acdd37db6f4fc0266" name="OracPrime Scripts">
+  <category name="Buffer Size Buttons">
+    <reapack name="Set block size to 1024.lua" type="script" desc="Set block/buffer size to 1024">
+      <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T10:02:08Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source main="main" file="Set Tracking Mode">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Buffer%20Size%20Buttons/Set%20block%20size%20to%201024.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Copy Paste Splits">
+    <reapack name="copySplits.lua" type="script" desc="Copy the split times of selected items to the clipboard so they can be pasted onto other takes/lanes/tracks">
+      <version name="0.1" author="OracPrime" time="2026-07-03T10:02:08Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Copy%20Paste%20Splits/copySplits.lua</source>
+        <source file="pasteSplits.lua">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Copy%20Paste%20Splits/pasteSplits.lua</source>
+        <source file="duplicateSplits.lua">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Copy%20Paste%20Splits/duplicateSplits.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="HarmonicaScope">
+    <reapack name="HarmonicaScope.jsfx" type="effect" desc="HarmonicaScope (DaveC )">
+      <version name="1.0" author="David Christensen + Gemini" time="2026-07-02T15:58:06Z">
+        <source>https://github.com/OracPrime/ReaperScripts/raw/e4498f4321cedbd2f95593e6c3626c0ab7c88839/HarmonicaScope/HarmonicaScope.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="InputVUMeter">
+    <reapack name="VUAsInputFX.lua" type="script" desc="Ensure that all selected tracks have the &quot;VU Meter (ZenoMod)&quot; plugin in their Input FX chain, and set it to &quot;Summed&quot; mode. If the plugin is missing, it will be added automatically.  ZenoMod VU available from ReaPack">
+      <version name="0.1" author="OracPrime" time="2026-07-03T10:02:08Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/InputVUMeter/VUAsInputFX.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Mark Takes">
+    <reapack name="Mark Takes.lua" type="script" desc="Take Marking Tool">
+      <version name="1.2" author="Gemini" time="2026-04-04T14:07:51Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/2db6848a7fba5f360c7842e99b5702636b01abb6/Mark%20Takes/Mark%20Takes.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Multiple Output Switching">
+    <reapack name="Monitor_FX_Sync.lua" type="script" desc="See Setup_Instructions.txt for setup instructions. This script will sync the state of the Monitor FX buttons in the toolbar with the actual state of the Monitor FX plugins on the Master track. It checks if each Monitor FX is offline or online and updates the corresponding toolbar button accordingly.">
+      <version name="0.1" author="OracPrime" time="2026-07-03T10:02:08Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Multiple%20Output%20Switching/Monitor_FX_Sync.lua</source>
+      </version>
+    </reapack>
+    <reapack name="Mute34.lua" type="script" desc="See Setup_Instructions.txt for setup instructions. This script will sync the state of the Monitor FX buttons in the toolbar with the actual state of the Monitor FX plugins on the Master track. It checks if each Monitor FX is offline or online and updates the corresponding toolbar button accordingly.">
+      <version name="0.1" author="OracPrime" time="2026-07-03T10:02:08Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Multiple%20Output%20Switching/Mute34.lua</source>
+      </version>
+    </reapack>
+  </category>
+</index>
