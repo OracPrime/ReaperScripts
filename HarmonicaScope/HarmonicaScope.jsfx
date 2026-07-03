@@ -1,203 +1,207 @@
 desc: HarmonicaScope
 author: OracPrime + Gemini
-version: 1.0.1
+version: 2.7
 
 slider1:0<0,1,1{C Diatonic,A Diatonic}> Harmonica Key
-slider2:-45<-60,-12,1> Detection Threshold (dB)
+slider2:1<0,1,1{Automatic AGC,Manual Slider}> Sensitivity Mode
+slider3:-40<-60,-6,1> Manual Threshold (dB)
+slider4:0<0,12,1{None,C,C#,D,Eb,E,F,F#,G,Ab,A,Bb,B}> Scale Root
+slider5:0<0,3,1{Major,Natural Minor,Blues,Major Pentatonic}> Scale Type
 
 @init
-MAX_HONES = 10;
+MAX_HOLES = 10;
 PI = 3.14159265358979323846;
 
-// Memory layout offsets
-freq_blow = 0;      // 10 slots
-freq_draw = 10;     // 10 slots
-g_coef_b  = 20;     // 10 slots
-g_coef_d  = 30;     // 10 slots
-
-// Goertzel state variables (s0, s1, s2 per hole)
-s1_b = 40; s2_b = 50;
-s1_d = 60; s2_d = 70;
+// Memory layout offsets - LOCKED backend
+freq_blow = 0;      freq_draw = 10;     
+g_coef_b  = 20;     g_coef_d  = 30;     
+s1_b = 40; s2_b = 50;  s1_d = 60; s2_d = 70;
 mag_b = 80; mag_d = 90;
+note_b = 100; note_d = 110;
 
-// Block accumulation counter
-// Dynamically scale block size to keep resolution sharp (~11Hz bins)
-block_size = srate > 88200 ? 8192 : 4096;
+running_peak = 0.005;
+noise_floor = 0.001;
+
+block_size = srate > 88200 ? 2048 : 1024; 
 sample_count = 0;
 
 function init_frequencies()
 (
-  // Clean states
   memset(s1_b, 0, 10); memset(s2_b, 0, 10);
   memset(s1_d, 0, 10); memset(s2_d, 0, 10);
 
-  // Richter Layout Frequencies (Hz)
   slider1 == 0 ? (
-    // C Diatonic (Standard Richter)
-    freq_blow[0] = 261.63; freq_draw[0] = 293.66; // Hole 1 (C4, D4)
-    freq_blow[1] = 329.63; freq_draw[1] = 392.00; // Hole 2 (E4, G4)
-    freq_blow[2] = 392.00; freq_draw[2] = 493.88; // Hole 3 (G4, B4)
-    freq_blow[3] = 523.25; freq_draw[3] = 587.33; // Hole 4 (C5, D5)
-    freq_blow[4] = 659.25; freq_draw[4] = 698.46; // Hole 5 (E5, F5)
-    freq_blow[5] = 783.99; freq_draw[5] = 880.00; // Hole 6 (G5, A5)
-    freq_blow[6] = 1046.50;freq_draw[6] = 987.77; // Hole 7 (C6, B5) Note: Draw is lower from 7 up
-    freq_blow[7] = 1318.51;freq_draw[7] = 1174.66;// Hole 8 (E6, D6)
-    freq_blow[8] = 1567.98;freq_draw[8] = 1396.91;// Hole 9 (G6, F6)
-    freq_blow[9] = 2093.00;freq_draw[9] = 1760.00;// Hole 10 (C7, A6)
+    note_b[0] = 60; note_d[0] = 62;
+    note_b[1] = 64; note_d[1] = 67;
+    note_b[2] = 67; note_d[2] = 71;
+    note_b[3] = 72; note_d[3] = 74;
+    note_b[4] = 76; note_d[4] = 77;
+    note_b[5] = 79; note_d[5] = 81;
+    note_b[6] = 84; note_d[6] = 83;
+    note_b[7] = 88; note_d[7] = 86;
+    note_b[8] = 91; note_d[8] = 89;
+    note_b[9] = 96; note_d[9] = 93;
   ) : (
-    // A Diatonic 
-    freq_blow[0] = 220.00; freq_draw[0] = 246.94; // Hole 1 (A3, B3)
-    freq_blow[1] = 277.18; freq_draw[1] = 329.63; // Hole 2 (C#4, E4)
-    freq_blow[2] = 329.63; freq_draw[2] = 415.30; // Hole 3 (E4, G#4)
-    freq_blow[3] = 440.00; freq_draw[3] = 493.88; // Hole 4 (A4, B4)
-    freq_blow[4] = 554.37; freq_draw[4] = 587.33; // Hole 5 (C#5, D5)
-    freq_blow[5] = 659.23; freq_draw[5] = 739.99; // Hole 6 (E5, F#5)
-    freq_blow[6] = 880.00; freq_draw[6] = 830.61; // Hole 7 (A5, G#5)
-    freq_blow[7] = 1108.73;freq_draw[7] = 987.77; // Hole 8 (C#6, B5)
-    freq_blow[8] = 1318.51;freq_draw[8] = 1174.66;// Hole 9 (E6, D6)
-    freq_blow[9] = 1760.00;freq_draw[9] = 1479.98;// Hole 10 (A6, F#6)
+    note_b[0] = 57; note_d[0] = 59;
+    note_b[1] = 61; note_d[1] = 64;
+    note_b[2] = 64; note_d[2] = 68;
+    note_b[3] = 69; note_d[3] = 71;
+    note_b[4] = 73; note_d[4] = 74;
+    note_b[5] = 76; note_d[5] = 80;
+    note_b[6] = 81; note_d[6] = 79;
+    note_b[7] = 85; note_d[7] = 83;
+    note_b[8] = 88; note_d[8] = 86;
+    note_b[9] = 93; note_d[9] = 89;
   );
 
-  // Calculate Goertzel coefficients
   i = 0;
-  loop(MAX_HONES,
+  loop(MAX_HOLES,
+    freq_blow[i] = 440.0 * pow(2.0, (note_b[i] - 69.0) / 12.0);
+    freq_draw[i] = 440.0 * pow(2.0, (note_d[i] - 69.0) / 12.0);
     g_coef_b[i] = 2.0 * cos(2.0 * PI * freq_blow[i] / srate);
     g_coef_d[i] = 2.0 * cos(2.0 * PI * freq_draw[i] / srate);
     i += 1;
   );
 );
 
+function check_scale_match(midi_note)
+local(root_pc, note_pc, interval, mask, is_match)
+(
+  is_match = 0;
+  slider4 > 0 ? (
+    root_pc = slider4 - 1; 
+    note_pc = midi_note % 12;
+    interval = (note_pc - root_pc + 12) % 12;
+    
+    mask = 0;
+    slider5 == 0 ? mask = 2741; 
+    slider5 == 1 ? mask = 2773; 
+    slider5 == 2 ? mask = 1171; 
+    slider5 == 3 ? mask = 2709; 
+    
+    is_match = (mask >> interval) & 1;
+  );
+  is_match;
+);
+
 init_frequencies();
-thresh_amp = 10 ^ (slider2 / 20);
 last_key = slider1;
 
 @slider
-last_key != slider1 ? (
-  init_frequencies();
-  last_key = slider1;
-);
-thresh_amp = 10 ^ (slider2 / 20);
+last_key != slider1 ? ( init_frequencies(); last_key = slider1; );
 
 @sample
-// Process mono input (average of left/right)
 input_sample = (spl0 + spl1) * 0.5;
-
 i = 0;
-loop(MAX_HONES,
-  // Blow filters
-  s0_b = input_sample + g_coef_b[i] * s1_b[i] - s2_b[i];
-  s2_b[i] = s1_b[i];
-  s1_b[i] = s0_b;
-
-  // Draw filters
-  s0_d = input_sample + g_coef_d[i] * s1_d[i] - s2_d[i];
-  s2_d[i] = s1_d[i];
-  s1_d[i] = s0_d;
-  
+loop(MAX_HOLES,
+  s0_b = input_sample + g_coef_b[i] * s1_b[i] - s2_b[i]; s2_b[i] = s1_b[i]; s1_b[i] = s0_b;
+  s0_d = input_sample + g_coef_d[i] * s1_d[i] - s2_d[i]; s2_d[i] = s1_d[i]; s1_d[i] = s0_d;
   i += 1;
 );
 
 sample_count += 1;
-
-// Terminate Goertzel block and calculate raw magnitudes
 sample_count >= block_size ? (
-  i = 0;
-  loop(MAX_HONES,
-    // Power evaluations (ignoring phase)
-    mag_b[i] = (s1_b[i]*s1_b[i] + s2_b[i]*s2_b[i] - g_coef_b[i]*s1_b[i]*s2_b[i]) / block_size;
-    mag_d[i] = (s1_d[i]*s1_d[i] + s2_d[i]*s2_d[i] - g_coef_d[i]*s1_d[i]*s2_d[i]) / block_size;
-    
-    // Scale for visual tracking
-    mag_b[i] = sqrt(max(0, mag_b[i]));
-    mag_d[i] = sqrt(max(0, mag_d[i]));
+  max_peak = 0.0;
+  norm_factor = 2.0 / block_size;
 
-    // Reset feedback lines
-    s1_b[i] = 0; s2_b[i] = 0;
-    s1_d[i] = 0; s2_d[i] = 0;
+  i = 0;
+  loop(MAX_HOLES,
+    mag_b[i] = norm_factor * sqrt(max(0, s1_b[i]*s1_b[i] + s2_b[i]*s2_b[i] - g_coef_b[i]*s1_b[i]*s2_b[i]));
+    mag_d[i] = norm_factor * sqrt(max(0, s1_d[i]*s1_d[i] + s2_d[i]*s2_d[i] - g_coef_d[i]*s1_d[i]*s2_d[i]));
+    
+    max_peak = max(max_peak, max(mag_b[i], mag_d[i]));
+
+    s1_b[i] = 0; s2_b[i] = 0; s1_d[i] = 0; s2_d[i] = 0;
     i += 1;
   );
-// ==========================================
-  // NEW: Overtone Suppression Logic
-  // ==========================================
-  
-  // 1. Suppress Hole 8 Blow if Hole 5 Blow is dominant
-  mag_b[7] > 0.0 ? (
-    mag_b[4] > (mag_b[7] * 1.5) ? mag_b[7] = 0;
+
+  mag_b[7] > 0.0 ? ( mag_b[4] > (mag_b[7] * 1.5) ? mag_b[7] = 0; );
+  mag_b[6] > 0.0 ? ( mag_b[3] > (mag_b[6] * 1.5) ? mag_b[6] = 0; );
+  mag_b[8] > 0.0 ? ( mag_b[5] > (mag_b[8] * 1.5) ? mag_b[8] = 0; );
+
+  slider2 == 0 ? (
+    max_peak > running_peak ? (
+      running_peak += (max_peak - running_peak) * 0.5; 
+    ) : (
+      running_peak -= (running_peak - max_peak) * 0.1; 
+    );
+    running_peak = max(running_peak, noise_floor);
+    thresh_amp = running_peak * 0.25;
+  ) : (
+    thresh_amp = pow(10, slider3 / 20);
   );
 
-  // 2. Suppress Hole 7 Blow if Hole 4 Blow is dominant (C5 -> C6 overtone)
-  mag_b[6] > 0.0 ? (
-    mag_b[3] > (mag_b[6] * 1.5) ? mag_b[6] = 0;
-  );
-
-  // 3. Suppress Hole 9 Blow if Hole 6 Blow is dominant (G5 -> G6 overtone)
-  mag_b[8] > 0.0 ? (
-    mag_b[5] > (mag_b[8] * 1.5) ? mag_b[8] = 0;
-  );  
   sample_count = 0;
 );
 
-@gfx 650 220
+@gfx 660 250
+gfx_clear = 2105376;
 
-gfx_clear = 2105376; // Dark grey background
+function get_note_name(midi_num)
+(
+  pc = midi_num % 12;
+  pc == 0 ? "C" : pc == 1 ? "C#" : pc == 2 ? "D" : pc == 3 ? "Eb" :
+  pc == 4 ? "E" : pc == 5 ? "F" : pc == 6 ? "F#" : pc == 7 ? "G" :
+  pc == 8 ? "Ab" : pc == 9 ? "A" : pc == 10 ? "Bb" : "B";
+);
 
-// Layout variables
-box_w = 55;
-box_h = 60;
-start_x = 35;
-start_y = 80;
-
-// Draw Interface Text
-gfx_set(0.8, 0.8, 0.8, 1);
-gfx_x = 20; gfx_y = 20;
-gfx_drawstr(slider1 == 0 ? "Targeting: C Diatonic Layout" : "Targeting: A Diatonic Layout");
+box_w = 56; box_h = 66; start_x = 35; start_y = 90;
+half_h = box_h / 2;
 
 i = 0;
-loop(MAX_HONES,
+loop(MAX_HOLES,
   x = start_x + (i * (box_w + 5));
   
-  // Is this specific hole active?
-  is_blow = mag_b[i] > thresh_amp;
-  is_draw = mag_d[i] > thresh_amp;
+  scale_b = check_scale_match(note_b[i]);
+  scale_d = check_scale_match(note_d[i]);
 
-  // Draw Blow indicator (Above)
+  is_blow = (mag_b[i] > thresh_amp);
+  is_draw = (mag_d[i] > thresh_amp);
+
+  // --- STATIC TOP OUTSIDE BOX (Scale Map Guide Only) ---
+  scale_b ? gfx_set(0.12, 0.32, 0.16, 1) : gfx_set(0.25, 0.25, 0.25, 1); 
+  gfx_rect(x, start_y - 30, box_w, 25);
+  gfx_set(0.9, 0.9, 0.9, 1); 
+  gfx_x = x + (box_w/2) - 6; gfx_y = start_y - 24;
+  gfx_drawstr(get_note_name(note_b[i]));
+
+  // --- INTERNAL REAL-TIME DETECTION LAYER (Split Hole) ---
+  // Top Half of the hole frame = BLOW activation
   is_blow ? (
-    gfx_set(0.2, 0.9, 0.3, 1); // Green for Blow
-    gfx_rect(x, start_y - 25, box_w, 20);
-    gfx_set(0,0,0,1);
-  ) : (
-    gfx_set(0.4, 0.4, 0.4, 1);
+    gfx_set(0.2, 0.9, 0.3, 1); // Bright active green
+    gfx_rect(x + 1, start_y + 1, box_w - 2, half_h - 1);
   );
-  gfx_x = x + 12; gfx_y = start_y - 22;
-  gfx_drawstr("BLOW");
 
-  // Draw the Main Hole Box Frame
-  gfx_set(0.7, 0.7, 0.7, 1);
-  // Highlight if either action triggers it
-  (is_blow || is_draw) ? gfx_set(1, 0.84, 0, 1); 
+  // Bottom Half of the hole frame = DRAW activation
+  is_draw ? (
+    gfx_set(0.2, 0.9, 0.3, 1); // Bright active green
+    gfx_rect(x + 1, start_y + half_h, box_w - 2, half_h - 1);
+  );
+
+  // --- PHYSICAL HOLE FRAME OVERLAY ---
+  gfx_set(0.5, 0.5, 0.5, 1);
+  (is_blow || is_draw) ? gfx_set(1, 0.84, 0, 1); // Golden borders if hole is active
   gfx_rect(x, start_y, box_w, box_h, 0);
 
-  // Hole Number text
-  gfx_set(1, 1, 1, 1);
-  gfx_x = x + (box_w/2) - 5; gfx_y = start_y + (box_h/2) - 8;
-  gfx_printed_idx = i + 1;
-  gfx_printf("%d", gfx_printed_idx);
+  // Split Divider line inside the frame
+  gfx_set(0.35, 0.35, 0.35, 1);
+  gfx_line(x + 1, start_y + half_h, x + box_w - 2, start_y + half_h);
 
-  // Draw Draw indicator (Below)
-  is_draw ? (
-    gfx_set(0.1, 0.6, 0.9, 1); // Blue for Draw
-    gfx_rect(x, start_y + box_h + 5, box_w, 20);
-    gfx_set(0,0,0,1);
-  ) : (
-    gfx_set(0.4, 0.4, 0.4, 1);
-  );
-  gfx_x = x + 14; gfx_y = start_y + box_h + 8;
-  gfx_drawstr("DRAW");
+  // Centered Hole Number text
+  gfx_set(0.9, 0.9, 0.9, 1);
+  gfx_x = x + (box_w/2) - 5; gfx_y = start_y + half_h - 8;
+  gfx_printf("%d", i + 1);
+
+  // --- STATIC BOTTOM OUTSIDE BOX (Scale Map Guide Only) ---
+  scale_d ? gfx_set(0.12, 0.32, 0.16, 1) : gfx_set(0.25, 0.25, 0.25, 1);
+  gfx_rect(x, start_y + box_h + 5, box_w, 25);
+  gfx_set(0.9, 0.9, 0.9, 1);
+  gfx_x = x + (box_w/2) - 6; gfx_y = start_y + box_h + 11;
+  gfx_drawstr(get_note_name(note_d[i]));
 
   i += 1;
 );
 
-// Small debug footer to view real-time logic activity
-gfx_set(0.5, 0.5, 0.5, 1);
-gfx_x = 20; gfx_y = 200;
-gfx_drawstr("Tip: Adjust 'Detection Threshold' slider if ambient room noise triggers holes.");
+gfx_set(0.6, 0.6, 0.6, 1);
+gfx_x = 35; gfx_y = 220;
+gfx_drawstr("Outside Boxes: Scale Map Guide | Inside Hole: Top Half = Blow Active, Bottom Half = Draw Active");
