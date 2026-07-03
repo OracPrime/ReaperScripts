@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="85b7c3c5e08b28345d1b596acdd37db6f4fc0266" name="OracPrime Scripts">
+<index version="1" commit="1700cdf49575a9f9e59f3bad824efea3cb1c1a55" name="OracPrime Scripts">
   <category name="Buffer Size Buttons">
     <reapack name="Set block size to 1024.lua" type="script" desc="Set block/buffer size to 1024">
       <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T10:02:08Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source main="main" file="Set Tracking Mode">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Buffer%20Size%20Buttons/Set%20block%20size%20to%201024.lua</source>
+      </version>
+    </reapack>
+    <reapack name="Set block size to 128.lua" type="script" desc="Set block/buffer size to 128">
+      <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T12:09:20Z">
+        <changelog><![CDATA[initial release]]></changelog>
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/1700cdf49575a9f9e59f3bad824efea3cb1c1a55/Buffer%20Size%20Buttons/Set%20block%20size%20to%20128.lua</source>
       </version>
     </reapack>
   </category>
@@ -18,7 +24,7 @@
     </reapack>
   </category>
   <category name="HarmonicaScope">
-    <reapack name="HarmonicaScope.jsfx" type="effect" desc="HarmonicaScope (DaveC )">
+    <reapack name="HarmonicaScope.jsfx" type="effect" desc="HarmonicaScope">
       <version name="1.0" author="David Christensen + Gemini" time="2026-07-02T15:58:06Z">
         <source>https://github.com/OracPrime/ReaperScripts/raw/e4498f4321cedbd2f95593e6c3626c0ab7c88839/HarmonicaScope/HarmonicaScope.jsfx</source>
       </version>
