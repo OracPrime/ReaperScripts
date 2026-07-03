@@ -1,5 +1,5 @@
 -- @description Take Marking Tool
--- @author David Christensen
+-- @author OracPrime
 -- @version 1.2
 
 -- Check for ReaImGui API

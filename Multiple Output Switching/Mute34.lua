@@ -1,3 +1,7 @@
+-- @description See Setup_Instructions.txt for setup instructions. This script will sync the state of the Monitor FX buttons in the toolbar with the actual state of the Monitor FX plugins on the Master track. It checks if each Monitor FX is offline or online and updates the corresponding toolbar button accordingly.
+-- @author OracPrime
+-- @version 0.1
+
 -- Symmetrical Monitor Controller
 local master = reaper.GetMasterTrack(0)
 local count = reaper.TrackFX_GetRecCount(master)

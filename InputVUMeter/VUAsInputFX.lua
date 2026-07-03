@@ -1,3 +1,7 @@
+-- @description Ensure that all selected tracks have the "VU Meter (ZenoMod)" plugin in their Input FX chain, and set it to "Summed" mode. If the plugin is missing, it will be added automatically.  ZenoMod VU available from ReaPack
+-- @author OracPrime
+-- @version 0.1
+
 -- Get the first selected track
 local track = reaper.GetSelectedTrack(0, 0)
 

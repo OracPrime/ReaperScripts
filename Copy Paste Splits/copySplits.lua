@@ -1,3 +1,10 @@
+-- @description Copy the split times of selected items to the clipboard so they can be pasted onto other takes/lanes/tracks
+-- @author OracPrime
+-- @version 0.1
+-- @provides
+--   pasteSplits.lua
+--   duplicateSplits.lua
+
 -- Function to print debug messages
 function Msg(str)
     reaper.ShowConsoleMsg(tostring(str) .. "\n")

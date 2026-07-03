@@ -79,3 +79,5 @@ TECHNICAL NOTES:
 - Disabled FX info is stored in project extended state
 - FX are verified by GUID before re-enabling (safe if FX chain was modified)
 - Track names and FX positions are stored for reference
+
+@noindex

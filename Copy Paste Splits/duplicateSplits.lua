@@ -1,3 +1,7 @@
+-- @description #desc
+-- @author OracPrime
+-- @version 0.1
+
 -- Function to print debug messages
 function Msg(str)
     reaper.ShowConsoleMsg(tostring(str) .. "\n")

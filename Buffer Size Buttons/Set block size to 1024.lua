@@ -1,7 +1,7 @@
 --@author OracPrime based in part on souk21 script
 --@description Set block/buffer size to 1024
 --@version 0.1
---@changelog
+--@changelog Initial release
 --@metapackage
 --@provides
 --   [main] . > Set Tracking Mode
