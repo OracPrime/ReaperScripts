@@ -1,6 +1,6 @@
 -- @description Take Marking Tool
 -- @author OracPrime
--- @version 1.2
+-- @version 1.2.1
 
 -- Check for ReaImGui API
 if not reaper.ImGui_CreateContext then

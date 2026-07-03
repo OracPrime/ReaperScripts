@@ -1,6 +1,6 @@
 desc: HarmonicaScope
 author: OracPrime + Gemini
-version: 1.0
+version: 1.0.1
 
 slider1:0<0,1,1{C Diatonic,A Diatonic}> Harmonica Key
 slider2:-45<-60,-12,1> Detection Threshold (dB)
