@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="1700cdf49575a9f9e59f3bad824efea3cb1c1a55" name="OracPrime Scripts">
+<index version="1" commit="eb2e57bb8935cf5c017f58e6ebf0067071085100" name="OracPrime Scripts">
   <category name="Buffer Size Buttons">
     <reapack name="Set block size to 1024.lua" type="script" desc="Set block/buffer size to 1024">
       <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T10:02:08Z">
@@ -28,6 +28,9 @@
       <version name="1.0" author="David Christensen + Gemini" time="2026-07-02T15:58:06Z">
         <source>https://github.com/OracPrime/ReaperScripts/raw/e4498f4321cedbd2f95593e6c3626c0ab7c88839/HarmonicaScope/HarmonicaScope.jsfx</source>
       </version>
+      <version name="1.0.1" author="OracPrime + Gemini" time="2026-07-03T13:03:45Z">
+        <source>https://github.com/OracPrime/ReaperScripts/raw/eb2e57bb8935cf5c017f58e6ebf0067071085100/HarmonicaScope/HarmonicaScope.jsfx</source>
+      </version>
     </reapack>
   </category>
   <category name="InputVUMeter">
@@ -41,6 +44,9 @@
     <reapack name="Mark Takes.lua" type="script" desc="Take Marking Tool">
       <version name="1.2" author="Gemini" time="2026-04-04T14:07:51Z">
         <source main="main">https://github.com/OracPrime/ReaperScripts/raw/2db6848a7fba5f360c7842e99b5702636b01abb6/Mark%20Takes/Mark%20Takes.lua</source>
+      </version>
+      <version name="1.2.1" author="OracPrime" time="2026-07-03T13:03:45Z">
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/eb2e57bb8935cf5c017f58e6ebf0067071085100/Mark%20Takes/Mark%20Takes.lua</source>
       </version>
     </reapack>
   </category>
