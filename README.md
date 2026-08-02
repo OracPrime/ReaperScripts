@@ -27,3 +27,7 @@ When setting input levels on external hardware it is good to be able to see the 
 ## Harmonica Scope
 
 A tool to monitor a channel that you are playing harmonica on. Aimed at students it tries to measure which hole or holes you are drawing or blowing.  Excellent for helping you acquire single note as well as chord technique.  Doesn't cope with bends.... yet.
+
+## New Jam Project
+
+I jam with some guys a few times a month.  We have the same set of instruments plugged in, and some standard MIDI drums tracks.  So I have that setup saved as a project template.  When we start a new song in the jam, this script instantiates a new copy of the project and saves it in a well known place (so the projects for a given jam can be found).  The other tweak as that because we may have set volumes on mic'd amps differently, or have different placement, I assume the levels for the tracks in the currently open project should be replicated on the same-named tracks in the new project.  It's a bit of a niche requirement, but maybe it will help someone else too!
