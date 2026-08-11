@@ -64,11 +64,21 @@ function BufferSize.load_disabled_fx()
 end
 
 function BufferSize.disable_fx_list(disabled_fx)
+  local all_disabled_fx = BufferSize.load_disabled_fx()
+  local stored_guids = {}
+  for _, fx_info in ipairs(all_disabled_fx) do
+    stored_guids[fx_info.guid] = true
+  end
+
   for _, fx_info in ipairs(disabled_fx) do
     local offset = fx_info.is_monitor and MONITOR_FX_OFFSET or 0
     reaper.TrackFX_SetOffline(fx_info.track, offset + fx_info.fx_index, true)
+    if not stored_guids[fx_info.guid] then
+      table.insert(all_disabled_fx, fx_info)
+      stored_guids[fx_info.guid] = true
+    end
   end
-  BufferSize.save_disabled_fx(disabled_fx)
+  BufferSize.save_disabled_fx(all_disabled_fx)
 end
 
 function BufferSize.clear_disabled_fx()
