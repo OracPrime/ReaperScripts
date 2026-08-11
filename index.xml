@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="ff764d2bc9e8e9eb01ca42d2b80004cb426b5865" name="OracPrime Scripts">
+<index version="1" commit="6759f222b568f1cbc0e5a6f0bb113a49a4e97161" name="OracPrime Scripts">
   <category name="Buffer Size Buttons">
     <reapack name="Set block size to 128.lua" type="script" desc="Set block/buffer size to 128 for record, revert to 1024 for mix">
       <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T12:09:20Z">
         <changelog><![CDATA[initial release]]></changelog>
         <source main="main">https://github.com/OracPrime/ReaperScripts/raw/1700cdf49575a9f9e59f3bad824efea3cb1c1a55/Buffer%20Size%20Buttons/Set%20block%20size%20to%20128.lua</source>
       </version>
-      <!-- Add a 0.2 version here after committing. Its sources must use that final commit's immutable SHA and include the 1024 action plus BufferSizeCommon.lua. -->
+      <version name="0.3" author="OracPrime based in part on souk21 script" time="2026-08-11T11:02:49Z">
+        <changelog><![CDATA[
+- Package the 128 and 1024 actions with a shared helper.
+- Take high-PDC FX offline for low-latency monitoring and restore them at 1024.
+- Include muted tracks in the PDC scan.
+- Use native REAPER PDC queries; SWS is no longer required.
+        ]]></changelog>
+        <source main="main">https://github.com/OracPrime/ReaperScripts/raw/6759f222b568f1cbc0e5a6f0bb113a49a4e97161/Buffer%20Size%20Buttons/Set%20block%20size%20to%20128.lua</source>
+        <source file="Set block size to 1024.lua">https://github.com/OracPrime/ReaperScripts/raw/6759f222b568f1cbc0e5a6f0bb113a49a4e97161/Buffer%20Size%20Buttons/Set%20block%20size%20to%201024.lua</source>
+        <source file="BufferSizeCommon.lua">https://github.com/OracPrime/ReaperScripts/raw/6759f222b568f1cbc0e5a6f0bb113a49a4e97161/Buffer%20Size%20Buttons/BufferSizeCommon.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="Copy Paste Splits">
