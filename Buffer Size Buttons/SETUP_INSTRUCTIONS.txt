@@ -5,47 +5,46 @@ SETUP INSTRUCTIONS FOR BUFFER SIZE TOOLBAR BUTTONS
 REQUIREMENTS:
 -------------
 - js_ReaScriptAPI extension (for window manipulation)
-- SWS extension (for getting FX latency/PDC information)
-  Download from: https://www.sws-extension.org/
 
 FEATURES:
 ---------
 - Set buffer size to 128 or 1024 with toolbar buttons
 - Automatically scans for high PDC (Plugin Delay Compensation) FX when switching to 128
-- Option to disable high-latency FX for low-latency recording
-- Automatically offers to re-enable disabled FX when switching back to 1024
+- Option to take high-latency FX offline for low-latency recording
+- Automatically offers to bring offlined FX online when switching back to 1024
 - Buttons highlight/de-highlight each other (mutually exclusive)
 - PDC threshold is configurable (default: 128 samples)
 
 INSTALLATION:
 -------------
 
-1. Add both scripts to Reaper:
+1. Install the single "Buffer Size Buttons" package through ReaPack. It installs both actions and the private BufferSizeCommon.lua helper.
+
+2. Add both actions to Reaper:
    - Actions → Show action list
    - Click "New action" → "Load ReaScript"
    - Load "Set block size to 128.lua"
    - Load "Set block size to 1024.lua"
 
-2. Add to toolbar:
+3. Add to toolbar:
    - Right-click on toolbar → Customize toolbar
    - Find both scripts in the action list
    - Drag them to your toolbar
    - Click OK
 
-3. First use:
+4. First use:
    - Click each button once
    - This registers their command IDs so they can find each other
    - From then on, clicking one will automatically de-highlight the other
 
 That's it! No manual ID configuration needed.
-That's it! No manual ID configuration needed.
 
-4. The buttons will now:
+5. The buttons will now:
    - Highlight when clicked
    - Automatically de-highlight the other button
    - Set the buffer size accordingly
-   - (128 button) Scan for high PDC FX and offer to disable them
-   - (1024 button) Offer to re-enable previously disabled FX
+  - (128 button) Scan for high PDC FX and offer to take them offline
+  - (1024 button) Offer to bring previously offlined FX back online
 
 USAGE:
 ------
@@ -53,15 +52,15 @@ When switching to 128 buffer (for low-latency recording):
 - Script scans all tracks for FX with PDC > 128 samples
 - If found, shows a dialog listing the problematic FX
 - Options:
-  * Yes: Disable the FX and set buffer to 128
+  * Yes: Take the FX offline and set buffer to 128
   * No: Just set buffer to 128 (keep FX enabled)
   * Cancel: Don't change anything
 
 When switching to 1024 buffer (for mixing/processing):
-- If any FX were previously disabled, offers to re-enable them
+- If any FX were previously offlined, offers to bring them online
 - Options:
-  * Yes: Re-enable all previously disabled FX
-  * No: Keep them disabled and clear the list
+  * Yes: Bring all previously offlined FX online
+  * No: Keep them offline and clear the list
   * Cancel: Don't change anything
 
 CUSTOMIZATION:
@@ -72,13 +71,12 @@ To change the PDC threshold, edit "Set block size to 128.lua":
 REQUIREMENTS:
 -------------
 - js_ReaScriptAPI extension (install from ReaPack)
-- SWS extension (https://www.sws-extension.org/)
-Both extensions are free and widely used in the Reaper community.
+The extension is free and widely used in the Reaper community.
 
 TECHNICAL NOTES:
 ----------------
-- Disabled FX info is stored in project extended state
-- FX are verified by GUID before re-enabling (safe if FX chain was modified)
+- Offlined FX info is stored in project extended state
+- FX are verified by GUID before being brought online (safe if FX chain was modified)
 - Track names and FX positions are stored for reference
 
 @noindex

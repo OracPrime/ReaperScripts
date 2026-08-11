@@ -1,17 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <index version="1" commit="ff764d2bc9e8e9eb01ca42d2b80004cb426b5865" name="OracPrime Scripts">
   <category name="Buffer Size Buttons">
-    <reapack name="Set block size to 1024.lua" type="script" desc="Set block/buffer size to 1024">
-      <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T10:02:08Z">
-        <changelog><![CDATA[Initial release]]></changelog>
-        <source main="main" file="Set Tracking Mode">https://github.com/OracPrime/ReaperScripts/raw/85b7c3c5e08b28345d1b596acdd37db6f4fc0266/Buffer%20Size%20Buttons/Set%20block%20size%20to%201024.lua</source>
-      </version>
-    </reapack>
-    <reapack name="Set block size to 128.lua" type="script" desc="Set block/buffer size to 128">
+    <reapack name="Set block size to 128.lua" type="script" desc="Set block/buffer size to 128 for record, revert to 1024 for mix">
       <version name="0.1" author="OracPrime based in part on souk21 script" time="2026-07-03T12:09:20Z">
         <changelog><![CDATA[initial release]]></changelog>
         <source main="main">https://github.com/OracPrime/ReaperScripts/raw/1700cdf49575a9f9e59f3bad824efea3cb1c1a55/Buffer%20Size%20Buttons/Set%20block%20size%20to%20128.lua</source>
       </version>
+      <!-- Add a 0.2 version here after committing. Its sources must use that final commit's immutable SHA and include the 1024 action plus BufferSizeCommon.lua. -->
     </reapack>
   </category>
   <category name="Copy Paste Splits">

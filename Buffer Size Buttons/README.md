@@ -12,41 +12,41 @@ These scripts automate the buffer size switching and intelligently manage high-l
 - **Set block size to 128**: Switches to low-latency mode for recording
 
   - Automatically scans for plugins with high PDC (Plugin Delay Compensation)
-  - Offers to temporarily disable laggy plugins
-  - Ignores muted tracks by default (Ctrl+click to include them)
-  - Shift+click to auto-disable high-latency plugins without confirmation
+  - Offers to temporarily take high-latency plugins offline, removing their PDC
+  - Includes muted tracks so their PDC cannot add monitoring delay
+  - Shift+click to take high-latency plugins offline without confirmation
 
 - **Set block size to 1024**: Switches to mixing/processing mode
-  - Automatically offers to re-enable previously disabled plugins
+  - Automatically offers to bring previously offlined plugins back online
   - Provides better CPU efficiency for complex processing
 
 ## Features
 
 - ✅ Mutually exclusive toolbar buttons (one highlighted at a time)
 - ✅ Smart plugin latency detection (scans regular tracks, Master track, and Monitor FX)
-- ✅ Ignores bypassed plugins and muted tracks
-- ✅ Remembers which plugins were disabled for easy re-enabling
-- ✅ Keyboard modifiers for power users (Ctrl/Shift)
+- ✅ Includes muted tracks and ignores already-offline plugins
+- ✅ Remembers which plugins were taken offline for easy restoration
+- ✅ Shift-click shortcut for offline/online switching without confirmation
 - ✅ Configurable PDC threshold
 - ✅ Status bar feedback
 
 ## Installation
 
-See [SETUP_INSTRUCTIONS.txt](SETUP_INSTRUCTIONS.txt) for complete installation and configuration instructions.
+Install the single **Buffer Size Buttons** package through ReaPack. It includes both toolbar actions and the private `BufferSizeCommon.lua` helper. See [SETUP_INSTRUCTIONS.txt](SETUP_INSTRUCTIONS.txt) for complete setup instructions.
 
 ## Requirements
 
 - **Reaper** (Digital Audio Workstation)
 - **js_ReaScriptAPI** extension (available via ReaPack)
-- **SWS extension** (https://www.sws-extension.org/)
 
 ## Quick Start
 
-1. Install the required extensions (js_ReaScriptAPI and SWS)
-2. Load both scripts into Reaper's Actions list
-3. Add both scripts to your toolbar
-4. Click each button once to register them
-5. They will now automatically toggle each other!
+1. Install the required js_ReaScriptAPI extension
+2. Install the **Buffer Size Buttons** package through ReaPack
+3. Load both provided action scripts into Reaper's Actions list
+4. Add both scripts to your toolbar
+5. Click each button once to register them
+6. They will now automatically toggle each other!
 
 ## Mac Users
 
@@ -54,10 +54,8 @@ Initial users have reported issues on Mac. For now debug logging is turned on on
 
 ## Usage Tips
 
-- **Normal click**: Shows dialog when high-PDC plugins are found (128) or when re-enabling plugins (1024)
-- **Shift+click**: Auto-disable/re-enable plugins without asking (works for both 128 and 1024)
-- **Ctrl+click (128 only)**: Include muted tracks in the scan
-- **Shift+Ctrl+click (128 only)**: Include muted tracks AND auto-disable without confirmation
+- **Normal click**: Shows a dialog when high-PDC plugins are found (128) or when restoring offlined plugins (1024)
+- **Shift+click**: Take high-latency plugins offline or bring them back online without asking
 - Check the status bar for confirmation of buffer size and plugin count
 
 ## Customization

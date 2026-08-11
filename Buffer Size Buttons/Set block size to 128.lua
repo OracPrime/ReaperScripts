@@ -1,45 +1,22 @@
 --@author OracPrime based in part on souk21 script
 --@description Set block/buffer size to 128
---@version 0.1
---@changelog initial release
+--@version 0.2
+--@changelog Refactor shared buffer-switching logic into a ReaPack companion file.
+-- @provides
+--   Set block size to 1024.lua
+--   BufferSizeCommon.lua
 
 local selected_size = "128"
 local PDC_THRESHOLD = 128  -- Maximum acceptable PDC in samples
 
-if reaper.JS_Window_Find == nil then
-  reaper.ShowMessageBox(
-    "This script needs js_ReaScriptAPI to be installed.\nYou can download it from ReaPack in the next window",
-    "Missing dependency", 0)
-  reaper.ReaPack_BrowsePackages("js_ReaScriptAPI")
-  return
-end
+local _, script_path = reaper.get_action_context()
+local script_dir = script_path:match("^(.+[\\/])")
+local BufferSize = dofile(script_dir .. "BufferSizeCommon.lua")
 
--- Check for SWS extension (required for TrackFX_GetPDC)
-if not reaper.APIExists("BR_GetSetTrackSendInfo") then
-  reaper.ShowMessageBox(
-    "This script needs the SWS extension to be installed.\nPlease install SWS from https://www.sws-extension.org/",
-    "Missing dependency", 0)
-  return
-end
-
--- Function to get FX PDC (Plugin Delay Compensation)
-function get_fx_pdc(track, fx_index)
-  -- Get the reported latency from the FX
-  -- This uses the native Reaper API (v6.20+)
-  local pdc_samples = reaper.TrackFX_GetPinMappings and ({reaper.TrackFX_GetPinMappings(track, fx_index, 0, 0)})[2] or 0
-  
-  -- Alternative: Use the track's media item offset which includes all FX latency
-  -- We need to check the FX-specific latency
-  local retval, buf = reaper.TrackFX_GetNamedConfigParm(track, fx_index, "pdc")
-  if retval then
-    pdc_samples = tonumber(buf) or 0
-  end
-  
-  return pdc_samples
-end
+if not BufferSize.require_js_reascript_api() then return end
 
 -- Function to scan all tracks for high PDC FX
-function scan_high_pdc_fx(include_muted_tracks)
+local function scan_high_pdc_fx()
   local high_pdc_fx = {}
   local track_count = reaper.CountTracks(0)
   
@@ -51,30 +28,25 @@ function scan_high_pdc_fx(include_muted_tracks)
       track_name = "Track " .. (i + 1)
     end
     
-    -- Check if track is muted
-    local is_muted = reaper.GetMediaTrackInfo_Value(track, "B_MUTE") == 1
-    
-    -- Skip muted tracks unless include_muted_tracks is true
-    if not is_muted or include_muted_tracks then
-      local fx_count = reaper.TrackFX_GetCount(track)
-      for j = 0, fx_count - 1 do
-        local _, fx_name = reaper.TrackFX_GetFXName(track, j, "")
-        local is_enabled = reaper.TrackFX_GetEnabled(track, j)
-        local pdc = get_fx_pdc(track, j)
-        
-        if is_enabled and pdc > PDC_THRESHOLD then
-          table.insert(high_pdc_fx, {
-            track = track,
-            track_index = i,
-            track_name = track_name,
-            fx_index = j,
-            fx_name = fx_name,
-            pdc = pdc,
-            guid = reaper.TrackFX_GetFXGUID(track, j),
-            is_master = false,
-            is_monitor = false
-          })
-        end
+    local fx_count = reaper.TrackFX_GetCount(track)
+    for j = 0, fx_count - 1 do
+      local _, fx_name = reaper.TrackFX_GetFXName(track, j, "")
+      local is_enabled = reaper.TrackFX_GetEnabled(track, j)
+      local is_offline = reaper.TrackFX_GetOffline(track, j)
+      local pdc = BufferSize.get_fx_pdc(track, j)
+
+      if is_enabled and not is_offline and pdc > PDC_THRESHOLD then
+        table.insert(high_pdc_fx, {
+          track = track,
+          track_index = i,
+          track_name = track_name,
+          fx_index = j,
+          fx_name = fx_name,
+          pdc = pdc,
+          guid = reaper.TrackFX_GetFXGUID(track, j),
+          is_master = false,
+          is_monitor = false
+        })
       end
     end
   end
@@ -86,9 +58,10 @@ function scan_high_pdc_fx(include_muted_tracks)
     for j = 0, fx_count - 1 do
       local _, fx_name = reaper.TrackFX_GetFXName(master_track, j, "")
       local is_enabled = reaper.TrackFX_GetEnabled(master_track, j)
-      local pdc = get_fx_pdc(master_track, j)
+      local is_offline = reaper.TrackFX_GetOffline(master_track, j)
+      local pdc = BufferSize.get_fx_pdc(master_track, j)
       
-      if is_enabled and pdc > PDC_THRESHOLD then
+      if is_enabled and not is_offline and pdc > PDC_THRESHOLD then
         table.insert(high_pdc_fx, {
           track = master_track,
           track_index = -1,  -- Master track identifier
@@ -109,9 +82,10 @@ function scan_high_pdc_fx(include_muted_tracks)
   for j = 0, monitor_fx_count - 1 do
     local _, fx_name = reaper.TrackFX_GetFXName(master_track, 0x1000000 + j, "")
     local is_enabled = reaper.TrackFX_GetEnabled(master_track, 0x1000000 + j)
-    local pdc = get_fx_pdc(master_track, 0x1000000 + j)
+    local is_offline = reaper.TrackFX_GetOffline(master_track, 0x1000000 + j)
+    local pdc = BufferSize.get_fx_pdc(master_track, 0x1000000 + j)
     
-    if is_enabled and pdc > PDC_THRESHOLD then
+    if is_enabled and not is_offline and pdc > PDC_THRESHOLD then
       table.insert(high_pdc_fx, {
         track = master_track,
         track_index = -2,  -- Monitor FX identifier
@@ -129,8 +103,7 @@ function scan_high_pdc_fx(include_muted_tracks)
   return high_pdc_fx
 end
 
--- Function to show dialog with high PDC FX
-function show_pdc_dialog(high_pdc_fx, message_suffix)
+local function show_pdc_dialog(high_pdc_fx)
   local message = "The following FX have PDC > " .. PDC_THRESHOLD .. " samples:\n\n"
   
   for i, fx_info in ipairs(high_pdc_fx) do
@@ -138,203 +111,52 @@ function show_pdc_dialog(high_pdc_fx, message_suffix)
       i, fx_info.track_name, fx_info.fx_name, fx_info.pdc)
   end
   
-  message = message .. "\nDisabling high PDC FX will improve low-latency performance.\n"
-  message = message .. "They can be re-enabled when switching to 1024 buffer.\n"
-  if message_suffix then
-    message = message .. message_suffix .. "\n"
-  end
-  message = message .. "\nDisable these FX and set buffer to 128?"
+  message = message .. "\nOfflining high-PDC FX removes their delay compensation for low-latency monitoring.\n"
+  message = message .. "They can be brought back online when switching to 1024 buffer.\n"
+  message = message .. "\nTake these FX offline and set buffer to 128?"
   
   local result = reaper.ShowMessageBox(message, "High PDC FX Detected", 3)
-  -- Result: 6 = Yes (disable FX and set buffer), 7 = No (just set buffer), 2 = Cancel
+  -- Result: 6 = Yes (offline FX and set buffer), 7 = No (just set buffer), 2 = Cancel
   
   return result
 end
 
--- Function to save disabled FX info to project extended state
-function save_disabled_fx(high_pdc_fx)
-  local disabled_data = {}
-  
-  for i, fx_info in ipairs(high_pdc_fx) do
-    table.insert(disabled_data, {
-      track_index = fx_info.track_index,
-      fx_index = fx_info.fx_index,
-      fx_guid = fx_info.guid,
-      track_name = fx_info.track_name,
-      fx_name = fx_info.fx_name,
-      is_master = fx_info.is_master,
-      is_monitor = fx_info.is_monitor
-    })
-  end
-  
-  -- Convert to string for storage
-  local data_str = ""
-  for i, item in ipairs(disabled_data) do
-    data_str = data_str .. string.format("%d|%d|%s|%s|%s|%s|%s\n",
-      item.track_index, item.fx_index, item.fx_guid, 
-      item.track_name:gsub("|", ""), item.fx_name:gsub("|", ""),
-      item.is_master and "1" or "0", item.is_monitor and "1" or "0")
-  end
-  
-  reaper.SetProjExtState(0, "BufferSizeScripts", "DisabledFX", data_str)
-end
-
--- Function to disable FX
-function disable_fx_list(high_pdc_fx)
-  for i, fx_info in ipairs(high_pdc_fx) do
-    if fx_info.is_monitor then
-      -- Monitor FX uses special index offset
-      reaper.TrackFX_SetEnabled(fx_info.track, 0x1000000 + fx_info.fx_index, false)
-    else
-      reaper.TrackFX_SetEnabled(fx_info.track, fx_info.fx_index, false)
-    end
-  end
-  save_disabled_fx(high_pdc_fx)
-end
-
--- Check if Ctrl key is held (detects modifier keys when script is run)
-local ctrl_held = reaper.JS_Mouse_GetState(4) == 4  -- 4 = Ctrl key mask
 local shift_held = reaper.JS_Mouse_GetState(8) == 8  -- 8 = Shift key mask
 
 -- Scan for high PDC FX
-local high_pdc_fx = scan_high_pdc_fx(ctrl_held)
+local high_pdc_fx = scan_high_pdc_fx()
 
 local fx_disabled_count = 0
 
 if #high_pdc_fx > 0 then
   if shift_held then
-    -- Shift-click: auto-disable without dialog
+    -- Shift-click: take FX offline without a dialog
     reaper.Undo_BeginBlock()
-    disable_fx_list(high_pdc_fx)
+    BufferSize.disable_fx_list(high_pdc_fx)
     fx_disabled_count = #high_pdc_fx
-    reaper.Undo_EndBlock("Disable high PDC FX", -1)
+    reaper.Undo_EndBlock("Take high PDC FX offline", -1)
   else
     -- Normal click: show dialog
-    local message_suffix = ctrl_held and "\n(Including muted tracks)" or "\n(Muted tracks ignored - Ctrl+click to include)"
-    local result = show_pdc_dialog(high_pdc_fx, message_suffix)
+    local result = show_pdc_dialog(high_pdc_fx)
     
     if result == 2 then -- Cancel
       return
-    elseif result == 6 then -- Yes - disable FX and set buffer
+    elseif result == 6 then -- Yes - take FX offline and set buffer
       reaper.Undo_BeginBlock()
-      disable_fx_list(high_pdc_fx)
+      BufferSize.disable_fx_list(high_pdc_fx)
       fx_disabled_count = #high_pdc_fx
-      reaper.Undo_EndBlock("Disable high PDC FX", -1)
+      reaper.Undo_EndBlock("Take high PDC FX offline", -1)
     end
     -- If result == 7 (No), just continue to set buffer without disabling FX
   end
 end
 
--- Set this action to ON state
-local _, _, section, cmdID = reaper.get_action_context()
-reaper.SetToggleCommandState(section, cmdID, 1)
-reaper.RefreshToolbar2(section, cmdID)
-
--- Save this script's command ID for the other script to find
-reaper.SetExtState("BufferSizeScripts", "cmd_128", tostring(cmdID), true)
-
--- Find and turn OFF the 1024 action (if it has been run before)
-local cmd_1024_str = reaper.GetExtState("BufferSizeScripts", "cmd_1024")
-if cmd_1024_str ~= "" then
-  local cmd_1024 = tonumber(cmd_1024_str)
-  if cmd_1024 then
-    reaper.SetToggleCommandState(section, cmd_1024, 0)
-    reaper.RefreshToolbar2(section, cmd_1024)
-  end
-end
-
-reaper.Main_OnCommand(1016, 0)  -- Transport: Stop
-reaper.Main_OnCommand(40099, 0) -- Open audio device preferences
-local preferences_title = reaper.LocalizeString("REAPER Preferences", "DLG_128", 0)
-local window = reaper.JS_Window_Find(preferences_title, true)
-
-if window == nil then
-  reaper.ShowMessageBox("Could not find REAPER Preferences window.\n\nThis may indicate:\n- The preferences window failed to open\n- js_ReaScriptAPI compatibility issue on your platform\n\nPlease check the ReaScript console for details.", "Error", 0)
-  reaper.ShowConsoleMsg("ERROR: JS_Window_Find failed to locate preferences window\n")
-  reaper.ShowConsoleMsg("Preferences title searched: " .. preferences_title .. "\n")
-  return
-end
-
--- Debug logging - only shown if window was found but other issues occur
-local debug_log = ""
-
-local hwnd_asio
-local hwnd_other
-local use_asio = true
-local arr = reaper.new_array({}, 255)
-reaper.JS_Window_ArrayAllChild(window, arr)
-local addresses = arr.table()
-
-debug_log = debug_log .. string.format("Found %d child windows\n", #addresses)
-
-for i = 1, #addresses do
-  local hwnd = reaper.JS_Window_HandleFromAddress(addresses[i])
-  local id = reaper.JS_Window_GetLong(hwnd, "ID")
-  if id == 1008 then
-    hwnd_asio = hwnd
-    debug_log = debug_log .. "Found ASIO buffer control (ID 1008)\n"
-  elseif id == 1009 then
-    hwnd_other = hwnd
-    debug_log = debug_log .. "Found non-ASIO buffer control (ID 1009)\n"
-  elseif id == 1000 then
-    local protocol = reaper.JS_Window_GetTitle(hwnd)
-    debug_log = debug_log .. string.format("Found audio protocol: %s\n", protocol)
-    if protocol == "WaveOut"
-        or protocol == "DirectSound"
-        or protocol:find("WDM Kernel Streaming")
-        or protocol:find("WASAPI")
-        or protocol == "Dummy Audio" then
-      use_asio = false
-    elseif protocol:find("Core Audio") or protocol:find("ALSA") or protocol:find("JACK") then
-      -- Mac/Linux audio systems
-      use_asio = false
-      debug_log = debug_log .. "Detected Mac/Linux audio system\n"
-    end
-  elseif id == 1043 or id == 1045 then -- "Request block size" checkbox (1043 is osx, 1045 is win)
-    reaper.JS_WindowMessage_Send(hwnd, "BM_SETCHECK", 0x1, 0, 0, 0)
-    debug_log = debug_log .. string.format("Checked 'Request block size' checkbox (ID %d)\n", id)
-  end
-end
-
-if use_asio then
-  if hwnd_asio then
-    reaper.JS_Window_SetTitle(hwnd_asio, selected_size)
-    debug_log = debug_log .. string.format("Set ASIO buffer to %s\n", selected_size)
-  else
-    reaper.ShowMessageBox("Could not find ASIO buffer size control.\n\nThis may indicate:\n- Unexpected preferences window layout\n- Platform-specific UI differences\n\nDebug info has been written to the ReaScript console.", "Error", 0)
-    reaper.ShowConsoleMsg("ERROR: ASIO buffer control not found\n")
-    reaper.ShowConsoleMsg(debug_log)
-    reaper.JS_Window_Destroy(window)
-    return
-  end
-else
-  if hwnd_other then
-    reaper.JS_Window_SetTitle(hwnd_other, selected_size)
-    debug_log = debug_log .. string.format("Set non-ASIO buffer to %s\n", selected_size)
-  else
-    reaper.ShowMessageBox("Could not find buffer size control.\n\nThis may indicate:\n- Unexpected preferences window layout\n- Platform-specific UI differences\n\nDebug info has been written to the ReaScript console.", "Error", 0)
-    reaper.ShowConsoleMsg("ERROR: Buffer control (ID 1009) not found\n")
-    reaper.ShowConsoleMsg(debug_log)
-    reaper.JS_Window_Destroy(window)
-    return
-  end
-end
-
-reaper.JS_WindowMessage_Send(window, "WM_COMMAND", 1144, 0, 0, 0) -- Apply
-debug_log = debug_log .. "Applied settings\n"
-reaper.JS_Window_Destroy(window)
+BufferSize.update_toolbar_state(selected_size)
+if not BufferSize.set_buffer_size(selected_size) then return end
 
 -- Show status message in the status bar
 local status_msg = "Buffer size set to " .. selected_size
 if fx_disabled_count > 0 then
-  status_msg = status_msg .. " (" .. fx_disabled_count .. " FX bypassed)"
+  status_msg = status_msg .. " (" .. fx_disabled_count .. " FX offlined)"
 end
 reaper.Undo_OnStateChange(status_msg)
-
--- Only output debug log if something went wrong (for Mac/Linux troubleshooting)
--- Check if we detected a non-Windows platform
-if debug_log:find("Core Audio") or debug_log:find("ALSA") or debug_log:find("JACK") then
-  reaper.ShowConsoleMsg("=== Buffer Size Script Debug Log ===\n")
-  reaper.ShowConsoleMsg(debug_log)
-  reaper.ShowConsoleMsg("=====================================\n")
-end

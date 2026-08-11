@@ -33,3 +33,6 @@ ehthumbs.db
 
 # Generated output
 BackingDrums/Output/
+
+# Local planning
+/todo.md
