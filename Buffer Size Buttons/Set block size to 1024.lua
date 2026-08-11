@@ -1,7 +1,7 @@
 --@author OracPrime based in part on souk21 script
 --@description Set block/buffer size to 1024
---@version 0.2
---@changelog Refactor shared buffer-switching logic into a ReaPack companion file.
+--@version 0.3
+--@changelog Restore offlined FX through the shared ReaPack companion helper.
 
 local selected_size = "1024"
 

@@ -1,7 +1,7 @@
 --@author OracPrime based in part on souk21 script
 --@description Set block/buffer size to 128
---@version 0.2
---@changelog Refactor shared buffer-switching logic into a ReaPack companion file.
+--@version 0.3
+--@changelog Offline high-PDC FX, include muted tracks, and use native PDC queries.
 -- @provides
 --   Set block size to 1024.lua
 --   BufferSizeCommon.lua
